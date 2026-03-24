@@ -472,10 +472,32 @@ class LLMClient:
         d = resp.model_dump()
         usage = d.get("usage") or {}
         usage["cost"] = 0.0
-        msg = ((d.get("choices") or [{}])[0]).get("message") or {}
+        choice = ((d.get("choices") or [{}])[0])
+        msg = choice.get("message") or {}
+        finish_reason = choice.get("finish_reason", "")
         log.info("GigaChat response: choices=%s, finish_reason=%s",
                  len(d.get("choices") or []),
-                 ((d.get("choices") or [{}])[0]).get("finish_reason"))
+                 finish_reason)
+
+        # If model called send_user_message — treat it as final response.
+        # Extract the text and return it as plain content (no tool_calls),
+        # so the loop terminates instead of continuing.
+        tool_calls = msg.get("tool_calls") or []
+        if tool_calls:
+            send_calls = [
+                tc for tc in tool_calls
+                if (tc.get("function") or {}).get("name") == "send_user_message"
+            ]
+            if send_calls:
+                try:
+                    args = json.loads(send_calls[-1]["function"]["arguments"] or "{}")
+                    text = args.get("text") or args.get("message") or args.get("content") or ""
+                    if text:
+                        log.info("GigaChat: send_user_message detected, returning as final text")
+                        return {"role": "assistant", "content": text, "tool_calls": []}, usage
+                except Exception:
+                    pass
+
         return msg, usage
 
     def chat(
