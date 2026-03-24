@@ -366,6 +366,72 @@ class LLMClient:
         log.debug("GigaChat tool filter: %d → %d tools", len(tools), len(filtered))
         return filtered
 
+    # GigaChat-specific instruction injected into system prompt
+    _GIGACHAT_SYSTEM_HINT = (
+        "\n\n## GigaChat Instructions\n\n"
+        "ВАЖНО: Используй инструменты напрямую, не открывай браузер для задач, "
+        "которые можно решить специализированными инструментами:\n"
+        "- Создание/редактирование Word документов → `word_create`\n"
+        "- Создание/редактирование Excel таблиц → `excel_create`, `excel_read`\n"
+        "- Создание презентаций PowerPoint → `pptx_create`\n"
+        "- Открытие файла в приложении → `office_open`\n"
+        "- Поиск в интернете → `web_search_browser`\n"
+        "- Выполнение команд → `run_shell`\n"
+        "- Чтение/запись файлов → `repo_read`, `repo_write`, `data_read`, `data_write`\n\n"
+        "НЕ используй `browse_page` для создания документов или поиска информации "
+        "если есть специализированный инструмент. "
+        "Выполняй задачу за минимальное количество шагов. "
+        "Когда задача выполнена — сразу вызови `send_user_message` с результатом."
+    )
+
+    @staticmethod
+    def _sanitize_gigachat_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove assistant messages with invalid/truncated tool_call JSON arguments.
+
+        GigaChat returns 400 if tool_calls in history have malformed JSON arguments.
+        """
+        sanitized = []
+        for msg in messages:
+            if msg.get("role") != "assistant":
+                sanitized.append(msg)
+                continue
+            tool_calls = msg.get("tool_calls")
+            if not tool_calls:
+                sanitized.append(msg)
+                continue
+            valid_calls = []
+            for tc in tool_calls:
+                fn = tc.get("function") or {}
+                args_raw = fn.get("arguments") or "{}"
+                try:
+                    json.loads(args_raw)
+                    valid_calls.append(tc)
+                except (json.JSONDecodeError, ValueError):
+                    log.warning("GigaChat: dropping tool_call with invalid JSON args: %s...", args_raw[:100])
+            if valid_calls:
+                new_msg = dict(msg)
+                new_msg["tool_calls"] = valid_calls
+                sanitized.append(new_msg)
+            else:
+                dropped_ids = {tc.get("id") for tc in tool_calls}
+                sanitized.append({
+                    "role": "assistant",
+                    "content": "[tool call removed due to invalid arguments]",
+                    "_dropped_tool_ids": dropped_ids,
+                })
+        # Second pass: remove tool results for dropped calls
+        result = []
+        dropped_ids: set = set()
+        for msg in sanitized:
+            if msg.get("role") == "assistant" and "_dropped_tool_ids" in msg:
+                dropped_ids.update(msg.pop("_dropped_tool_ids"))
+                result.append(msg)
+            elif msg.get("role") == "tool" and msg.get("tool_call_id") in dropped_ids:
+                log.warning("GigaChat: dropping orphaned tool result for call_id=%s", msg.get("tool_call_id"))
+            else:
+                result.append(msg)
+        return result
+
     def _chat_gigachat(self, messages, tools, max_tokens, tool_choice):
         model = os.environ.get("GIGACHAT_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
         client = self._get_gigachat_client()
@@ -380,7 +446,18 @@ class LLMClient:
                     if isinstance(b, dict) and b.get("type") == "text"
                 )
             if m.get("role") == "system" and isinstance(m.get("content"), str):
-                m["content"] = _compact_local_system_text(m["content"])
+                m["content"] = _compact_local_system_text(m["content"]) + self._GIGACHAT_SYSTEM_HINT
+
+        # Fix invalid tool_call arguments in history (causes 400 errors)
+        clean = self._sanitize_gigachat_messages(clean)
+
+        # Truncate oversized tool results to avoid context overflow
+        _GIGACHAT_TOOL_RESULT_LIMIT = 4000
+        for m in clean:
+            if m.get("role") == "tool":
+                content = m.get("content") or ""
+                if len(content) > _GIGACHAT_TOOL_RESULT_LIMIT:
+                    m["content"] = content[:_GIGACHAT_TOOL_RESULT_LIMIT] + f"\n...(truncated, {len(content)} chars total)"
 
         capped = min(max_tokens, 4096)
         kwargs = {
@@ -393,7 +470,6 @@ class LLMClient:
             if filtered:
                 clean_tools = [{k: v for k, v in t.items() if k != "cache_control"} for t in filtered]
                 kwargs["tools"] = clean_tools
-                # GigaChat ignores tool_choice="auto" — use "required" to force tool selection
                 kwargs["tool_choice"] = "required"
         resp = client.chat.completions.create(**kwargs)
         d = resp.model_dump()

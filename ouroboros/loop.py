@@ -289,10 +289,13 @@ def run_llm_loop(
     stateful_executor = StatefulToolExecutor()
     _owner_msg_seen: set = set()
     try:
-        MAX_ROUNDS = max(1, int(os.environ.get("OUROBOROS_MAX_ROUNDS", "200")))
+        if active_use_gigachat:
+            MAX_ROUNDS = max(1, int(os.environ.get("GIGACHAT_MAX_ROUNDS", "12")))
+        else:
+            MAX_ROUNDS = max(1, int(os.environ.get("OUROBOROS_MAX_ROUNDS", "200")))
     except (ValueError, TypeError):
-        MAX_ROUNDS = 200
-        log.warning("Invalid OUROBOROS_MAX_ROUNDS, defaulting to 200")
+        MAX_ROUNDS = 12 if active_use_gigachat else 200
+        log.warning("Invalid MAX_ROUNDS env var, defaulting to %d", MAX_ROUNDS)
     round_idx = 0
     try:
         while True:
