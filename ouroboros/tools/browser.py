@@ -224,27 +224,33 @@ def _extract_page_output(page: Any, output: str, ctx: ToolContext) -> str:
 
 
 def _browse_page(ctx: ToolContext, url: str, output: str = "text",
-                 wait_for: str = "", timeout: int = 30000,
+                 wait_for: str = "", timeout: int = 60000,
                  viewport: str = "") -> str:
-    try:
-        page = _ensure_browser(ctx)
+    def _do_goto(page):
         if viewport:
             _apply_viewport(page, viewport)
-        page.goto(url, timeout=timeout, wait_until="domcontentloaded")
+        try:
+            page.goto(url, timeout=timeout, wait_until="domcontentloaded")
+        except Exception:
+            # Heavy SPAs (YouTube etc.) often fire networkidle late — domcontentloaded is enough
+            pass
         if wait_for:
-            page.wait_for_selector(wait_for, timeout=timeout)
+            try:
+                page.wait_for_selector(wait_for, timeout=min(timeout, 10000))
+            except Exception:
+                # Selector may not exist on this page — continue anyway
+                log.debug("wait_for selector '%s' not found, continuing", wait_for)
         return _extract_page_output(page, output, ctx)
+
+    try:
+        page = _ensure_browser(ctx)
+        return _do_goto(page)
     except Exception as e:
         if _is_infrastructure_error(ctx):
             log.warning("Browser infrastructure error: %s. Cleaning up and retrying...", e)
             cleanup_browser(ctx)
             page = _ensure_browser(ctx)
-            if viewport:
-                _apply_viewport(page, viewport)
-            page.goto(url, timeout=timeout, wait_until="domcontentloaded")
-            if wait_for:
-                page.wait_for_selector(wait_for, timeout=timeout)
-            return _extract_page_output(page, output, ctx)
+            return _do_goto(page)
         raise
 
 
