@@ -79,6 +79,11 @@ SETTINGS_DEFAULTS = {
     "USE_LOCAL_CODE": False,
     "USE_LOCAL_LIGHT": False,
     "USE_LOCAL_FALLBACK": False,
+    # GigaChat / Cloud.ru Foundation Models
+    "GIGACHAT_API_KEY": "",
+    "GIGACHAT_BASE_URL": "https://foundation-models.api.cloud.ru/v1",
+    "GIGACHAT_MODEL": "ai-sage/GigaChat3-10B-A1.8B",
+    "USE_GIGACHAT": False,
 }
 
 _VALID_EFFORTS = ("none", "low", "medium", "high")
@@ -218,6 +223,7 @@ def apply_settings_to_env(settings: dict) -> None:
         "LOCAL_MODEL_PORT", "LOCAL_MODEL_N_GPU_LAYERS", "LOCAL_MODEL_CONTEXT_LENGTH",
         "LOCAL_MODEL_CHAT_FORMAT",
         "USE_LOCAL_MAIN", "USE_LOCAL_CODE", "USE_LOCAL_LIGHT", "USE_LOCAL_FALLBACK",
+        "GIGACHAT_API_KEY", "GIGACHAT_BASE_URL", "GIGACHAT_MODEL", "USE_GIGACHAT",
     ]
     for k in env_keys:
         val = settings.get(k)
