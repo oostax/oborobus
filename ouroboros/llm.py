@@ -339,15 +339,25 @@ class LLMClient:
             c = m.get("content")
             if isinstance(c, list):
                 m["content"] = "\n\n".join(b.get("text","") for b in c if isinstance(b,dict) and b.get("type")=="text")
-        kwargs = {"model": model, "messages": clean, "max_tokens": min(max_tokens, 4096)}
+        capped = min(max_tokens, 4096)
+        # Cloud.ru uses max_completion_tokens, pass via extra_body to bypass OpenAI SDK mapping
+        kwargs = {
+            "model": model,
+            "messages": clean,
+            "extra_body": {"max_completion_tokens": capped},
+        }
         if tools:
-            kwargs["tools"] = [{k:v for k,v in t.items() if k!="cache_control"} for t in tools]
+            clean_tools = [{k: v for k, v in t.items() if k != "cache_control"} for t in tools]
+            kwargs["tools"] = clean_tools
             kwargs["tool_choice"] = tool_choice
         resp = client.chat.completions.create(**kwargs)
         d = resp.model_dump()
         usage = d.get("usage") or {}
         usage["cost"] = 0.0
         msg = ((d.get("choices") or [{}])[0]).get("message") or {}
+        log.info("GigaChat response: choices=%s, finish_reason=%s",
+                 len(d.get("choices") or []),
+                 ((d.get("choices") or [{}])[0]).get("finish_reason"))
         return msg, usage
 
     def chat(
@@ -359,6 +369,7 @@ class LLMClient:
         max_tokens: int = 16384,
         tool_choice: str = "auto",
         use_local: bool = False,
+        use_gigachat: bool = False,
         temperature: Optional[float] = None,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Single LLM call. Returns: (response_message_dict, usage_dict with cost).
@@ -368,7 +379,7 @@ class LLMClient:
         """
         if use_local:
             return self._chat_local(messages, tools, max_tokens, tool_choice)
-        if self._gigachat_enabled():
+        if use_gigachat or self._gigachat_enabled():
             return self._chat_gigachat(messages, tools, max_tokens, tool_choice)
         return self._chat_openrouter(messages, model, tools, reasoning_effort, max_tokens, tool_choice, temperature)
 
