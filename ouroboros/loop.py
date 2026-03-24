@@ -272,6 +272,7 @@ def run_llm_loop(
     active_model = llm.default_model()
     active_effort = initial_effort
     active_use_local = os.environ.get("USE_LOCAL_MAIN", "").lower() in ("true", "1")
+    active_use_gigachat = os.environ.get("USE_GIGACHAT", "").lower() in ("true", "1")
 
     llm_trace: Dict[str, Any] = {"reasoning_notes": [], "tool_calls": []}
     accumulated_usage: Dict[str, Any] = {}
@@ -305,6 +306,7 @@ def run_llm_loop(
                         llm, messages, active_model, None, active_effort,
                         max_retries, drive_logs, task_id, round_idx, event_queue, accumulated_usage, task_type,
                         use_local=active_use_local,
+                        use_gigachat=active_use_gigachat,
                     )
                     if final_msg:
                         return (final_msg.get("content") or finish_reason), accumulated_usage, llm_trace
@@ -358,12 +360,18 @@ def run_llm_loop(
                 llm, messages, active_model, tool_schemas, active_effort,
                 max_retries, drive_logs, task_id, round_idx, event_queue, accumulated_usage, task_type,
                 use_local=active_use_local,
+                use_gigachat=active_use_gigachat,
             )
 
             if _pre_checkpoint_effort is not None:
                 active_effort = _pre_checkpoint_effort
 
             if msg is None:
+                if active_use_gigachat:
+                    return (
+                        "⚠️ GigaChat не ответил. Проверьте API-ключ и доступность сервиса."
+                    ), accumulated_usage, llm_trace
+
                 fallback_model = os.environ.get("OUROBOROS_MODEL_FALLBACK", "").strip()
                 if not fallback_model or fallback_model == active_model:
                     local_tag = " (local)" if active_use_local else ""

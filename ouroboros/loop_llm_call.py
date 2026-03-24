@@ -49,6 +49,7 @@ def call_llm_with_retry(
     accumulated_usage: Dict[str, Any],
     task_type: str = "",
     use_local: bool = False,
+    use_gigachat: bool = False,
 ) -> Tuple[Optional[Dict[str, Any]], float]:
     """
     Call LLM with retry logic, usage tracking, and event emission.
@@ -73,7 +74,7 @@ def call_llm_with_retry(
                 "use_local": bool(use_local),
             })
             kwargs = {"messages": messages, "model": model, "reasoning_effort": effort,
-                      "use_local": use_local}
+                      "use_local": use_local, "use_gigachat": use_gigachat}
             if tools:
                 kwargs["tools"] = tools
             resp_msg, usage = llm.chat(**kwargs)
@@ -82,18 +83,25 @@ def call_llm_with_retry(
 
             cost = float(usage.get("cost") or 0)
             display_model = model
-            provider = "local" if use_local else "openrouter"
-            if use_local:
+            if use_gigachat:
+                provider = "gigachat"
+                cost = 0.0
+                import os as _os
+                display_model = _os.environ.get("GIGACHAT_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
+            elif use_local:
+                provider = "local"
                 cost = 0.0
                 display_model = f"{model} (local)"
-            elif cost == 0.0:
-                cost = estimate_cost(
-                    model,
-                    int(usage.get("prompt_tokens") or 0),
-                    int(usage.get("completion_tokens") or 0),
-                    int(usage.get("cached_tokens") or 0),
-                    int(usage.get("cache_write_tokens") or 0),
-                )
+            else:
+                provider = "openrouter"
+                if cost == 0.0:
+                    cost = estimate_cost(
+                        model,
+                        int(usage.get("prompt_tokens") or 0),
+                        int(usage.get("completion_tokens") or 0),
+                        int(usage.get("cached_tokens") or 0),
+                        int(usage.get("cache_write_tokens") or 0),
+                    )
 
             category = task_type if task_type in ("evolution", "consciousness", "review", "summarize") else "task"
             emit_llm_usage_event(

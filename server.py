@@ -926,9 +926,10 @@ async def lifespan(app):
 
     settings = load_settings()
     has_api_key = bool(settings.get("OPENROUTER_API_KEY"))
+    has_gigachat = bool(settings.get("GIGACHAT_API_KEY")) and settings.get("USE_GIGACHAT") in (True, "true", "True", "1", 1)
     has_local = has_local_routing(settings)
 
-    if has_api_key or has_local:
+    if has_api_key or has_local or has_gigachat:
         threading.Thread(target=_run_supervisor, args=(settings,), daemon=True).start()
     else:
         _supervisor_ready.set()

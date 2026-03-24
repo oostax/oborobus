@@ -318,10 +318,42 @@ class LLMClient:
             pass
         return None
 
+
+    @staticmethod
+    def _gigachat_enabled() -> bool:
+        return os.environ.get("USE_GIGACHAT", "").lower() in ("true", "1")
+
+    def _get_gigachat_client(self):
+        import httpx
+        api_key = os.environ.get("GIGACHAT_API_KEY", "")
+        base_url = os.environ.get("GIGACHAT_BASE_URL", "https://foundation-models.api.cloud.ru/v1")
+        from openai import OpenAI
+        return OpenAI(base_url=base_url, api_key=api_key, max_retries=0,
+                      http_client=httpx.Client(verify=False))
+
+    def _chat_gigachat(self, messages, tools, max_tokens, tool_choice):
+        model = os.environ.get("GIGACHAT_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
+        client = self._get_gigachat_client()
+        clean = self._strip_cache_control(messages)
+        for m in clean:
+            c = m.get("content")
+            if isinstance(c, list):
+                m["content"] = "\n\n".join(b.get("text","") for b in c if isinstance(b,dict) and b.get("type")=="text")
+        kwargs = {"model": model, "messages": clean, "max_tokens": min(max_tokens, 4096)}
+        if tools:
+            kwargs["tools"] = [{k:v for k,v in t.items() if k!="cache_control"} for t in tools]
+            kwargs["tool_choice"] = tool_choice
+        resp = client.chat.completions.create(**kwargs)
+        d = resp.model_dump()
+        usage = d.get("usage") or {}
+        usage["cost"] = 0.0
+        msg = ((d.get("choices") or [{}])[0]).get("message") or {}
+        return msg, usage
+
     def chat(
         self,
         messages: List[Dict[str, Any]],
-        model: str,
+        model: str = "",
         tools: Optional[List[Dict[str, Any]]] = None,
         reasoning_effort: str = "medium",
         max_tokens: int = 16384,
@@ -336,7 +368,8 @@ class LLMClient:
         """
         if use_local:
             return self._chat_local(messages, tools, max_tokens, tool_choice)
-
+        if self._gigachat_enabled():
+            return self._chat_gigachat(messages, tools, max_tokens, tool_choice)
         return self._chat_openrouter(messages, model, tools, reasoning_effort, max_tokens, tool_choice, temperature)
 
     async def chat_async(
@@ -758,7 +791,8 @@ class LLMClient:
         return text, usage
 
     def default_model(self) -> str:
-        """Return the single default model from env. LLM switches via tool if needed."""
+        if self._gigachat_enabled():
+            return os.environ.get("GIGACHAT_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
         return os.environ.get("OUROBOROS_MODEL", "anthropic/claude-opus-4.6")
 
     def available_models(self) -> List[str]:
