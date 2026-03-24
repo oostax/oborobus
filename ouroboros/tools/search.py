@@ -1,10 +1,13 @@
-"""Web search tool — OpenAI Responses API with LLM-first overridable defaults."""
+"""Web search tool — OpenAI Responses API with LLM-first overridable defaults.
+Also provides web_search_browser — Chrome/Playwright search (no API key needed).
+"""
 
 from __future__ import annotations
 
 import json
 import logging
 import os
+import urllib.parse
 from typing import Any, Dict, List
 
 from ouroboros.tools.registry import ToolContext, ToolEntry
@@ -105,6 +108,51 @@ def _web_search(
         return json.dumps({"error": f"OpenAI web search failed: {repr(e)}"}, ensure_ascii=False)
 
 
+def _web_search_browser(ctx: ToolContext, query: str, num_results: int = 5) -> str:
+    """Search the web via Chrome (Playwright) using Google. No API key required."""
+    from ouroboros.tools.browser import _ensure_browser, cleanup_browser, _is_infrastructure_error
+    try:
+        page = _ensure_browser(ctx)
+        encoded = urllib.parse.quote_plus(query)
+        url = f"https://www.google.com/search?q={encoded}&hl=ru"
+        try:
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
+        except Exception:
+            pass  # partial load is fine
+
+        # Extract search result snippets via JS
+        results = page.evaluate("""() => {
+            const items = [];
+            // Google result blocks
+            document.querySelectorAll('div.g, div[data-sokoban-container]').forEach(el => {
+                const titleEl = el.querySelector('h3');
+                const linkEl = el.querySelector('a[href]');
+                const snippetEl = el.querySelector('div[data-sncf], div.VwiC3b, span.aCOpRe, div[style*="-webkit-line-clamp"]');
+                if (titleEl && linkEl) {
+                    items.push({
+                        title: titleEl.innerText.trim(),
+                        url: linkEl.href,
+                        snippet: snippetEl ? snippetEl.innerText.trim() : ''
+                    });
+                }
+            });
+            return items.slice(0, 10);
+        }""")
+
+        if not results:
+            # Fallback: grab visible text
+            text = page.evaluate("() => document.body.innerText")
+            return json.dumps({"query": query, "raw_text": (text or "")[:3000]}, ensure_ascii=False)
+
+        trimmed = results[:num_results]
+        return json.dumps({"query": query, "results": trimmed}, ensure_ascii=False, indent=2)
+
+    except Exception as e:
+        if _is_infrastructure_error(ctx):
+            cleanup_browser(ctx)
+        return json.dumps({"error": f"Browser search failed: {repr(e)}"}, ensure_ascii=False)
+
+
 def get_tools() -> List[ToolEntry]:
     return [
         ToolEntry("web_search", {
@@ -124,4 +172,17 @@ def get_tools() -> List[ToolEntry]:
                                      "description": f"Reasoning effort (default: {DEFAULT_REASONING_EFFORT})"},
             }, "required": ["query"]},
         }, _web_search, timeout_sec=540),
+        ToolEntry("web_search_browser", {
+            "name": "web_search_browser",
+            "description": (
+                "Search the web via Chrome browser (Google). No API key required. "
+                "Use this when OPENAI_API_KEY is not set or for quick lookups. "
+                "Returns titles, URLs and snippets from search results."
+            ),
+            "parameters": {"type": "object", "properties": {
+                "query": {"type": "string", "description": "Search query"},
+                "num_results": {"type": "integer", "default": 5,
+                                "description": "Number of results to return (default: 5)"},
+            }, "required": ["query"]},
+        }, _web_search_browser, timeout_sec=60),
     ]

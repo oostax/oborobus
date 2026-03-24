@@ -10,3 +10,6 @@ playwright
 playwright-stealth
 # optional: local model server (requires Metal-enabled build on macOS)
 # CMAKE_ARGS="-DGGML_METAL=on" pip install llama-cpp-python[server]
+openpyxl>=3.1
+python-docx>=1.1
+python-pptx>=0.6
