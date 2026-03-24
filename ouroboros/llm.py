@@ -341,11 +341,11 @@ class LLMClient:
         "run_shell",
         # Git
         "git_status", "git_diff",
-        # Browser & search
-        "browse_page", "browser_action", "web_search_browser",
+        # Browser & search (browser_action removed — too low-level, model misuses it)
+        "browse_page", "web_search_browser",
         # Office
         "excel_create", "excel_read", "word_create", "pptx_create", "office_open",
-        # Communication
+        # Communication — ALWAYS use send_user_message to reply to user
         "send_user_message", "send_photo",
         # Memory
         "knowledge_read", "knowledge_write", "knowledge_list",
@@ -368,20 +368,17 @@ class LLMClient:
 
     # GigaChat-specific instruction injected into system prompt
     _GIGACHAT_SYSTEM_HINT = (
-        "\n\n## GigaChat Instructions\n\n"
-        "ВАЖНО: Используй инструменты напрямую, не открывай браузер для задач, "
-        "которые можно решить специализированными инструментами:\n"
-        "- Создание/редактирование Word документов → `word_create`\n"
-        "- Создание/редактирование Excel таблиц → `excel_create`, `excel_read`\n"
-        "- Создание презентаций PowerPoint → `pptx_create`\n"
-        "- Открытие файла в приложении → `office_open`\n"
-        "- Поиск в интернете → `web_search_browser`\n"
-        "- Выполнение команд → `run_shell`\n"
-        "- Чтение/запись файлов → `repo_read`, `repo_write`, `data_read`, `data_write`\n\n"
-        "НЕ используй `browse_page` для создания документов или поиска информации "
-        "если есть специализированный инструмент. "
-        "Выполняй задачу за минимальное количество шагов. "
-        "Когда задача выполнена — сразу вызови `send_user_message` с результатом."
+        "\n\n## Правила работы (ОБЯЗАТЕЛЬНО)\n\n"
+        "1. ВСЕГДА отвечай пользователю через `send_user_message` — это единственный способ отправить ответ.\n"
+        "2. На простые вопросы и приветствия — сразу вызывай `send_user_message` с ответом, без лишних шагов.\n"
+        "3. Для создания файлов используй специализированные инструменты:\n"
+        "   - Word документы → `word_create`\n"
+        "   - Excel таблицы → `excel_create`\n"
+        "   - PowerPoint → `pptx_create`\n"
+        "   - Открыть файл → `office_open`\n"
+        "4. Для поиска в интернете → `web_search_browser` (НЕ browse_page).\n"
+        "5. Выполняй задачу за МИНИМАЛЬНОЕ количество шагов.\n"
+        "6. НЕ открывай браузер если задачу можно решить другим инструментом."
     )
 
     @staticmethod
