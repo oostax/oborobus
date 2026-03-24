@@ -370,17 +370,18 @@ class LLMClient:
     _GIGACHAT_SYSTEM_HINT = (
         "\n\n## Правила работы (ОБЯЗАТЕЛЬНО)\n\n"
         "1. ВСЕГДА отвечай пользователю через `send_user_message` — это единственный способ отправить ответ.\n"
-        "2. На простые вопросы и приветствия — сразу вызывай `send_user_message` с ответом, без лишних шагов.\n"
-        "3. Для создания файлов используй специализированные инструменты:\n"
-        "   - Word документы → `word_create(path=\"/tmp/doc.docx\", title=\"Заголовок\", paragraphs=[\"текст\"])`\n"
-        "   - Excel таблицы → `excel_create(path=\"/tmp/table.xlsx\", sheets=[{\"name\":\"Лист1\",\"headers\":[\"A\",\"B\"],\"rows\":[[\"v1\",\"v2\"]]}])`\n"
-        "   - PowerPoint → `pptx_create(path=\"/tmp/pres.pptx\", slides=[{\"title\":\"Заголовок\",\"content\":\"Текст\"}])`\n"
-        "   - Открыть файл → `office_open(path=\"/tmp/doc.docx\")`\n"
-        "4. Для записи текстового файла → `data_write(path=\"имя_файла\", content=\"текст\")`.\n"
-        "5. Для чтения файла → `data_read(path=\"имя_файла\")`.\n"
-        "6. Для выполнения команды → `run_shell(command=\"команда\")`.\n"
-        "7. Для поиска в интернете → `web_search_browser(query=\"запрос\")`.\n"
-        "8. Выполняй задачу за МИНИМАЛЬНОЕ количество шагов. После выполнения — сразу `send_user_message`."
+        "2. На простые вопросы — сразу `send_user_message`, без лишних шагов.\n"
+        "3. Инструменты для файлов:\n"
+        "   - Word: word_create(path=\"/tmp/doc.docx\", title=\"Заголовок\", paragraphs=[\"абзац1\", \"абзац2\"])\n"
+        "   - Excel: excel_create(path=\"/tmp/t.xlsx\", sheets=[{\"name\":\"Лист1\", \"headers\":[\"Имя\",\"Возраст\"], \"rows\":[[\"Иван\",30],[\"Мария\",25]]}])\n"
+        "   - PowerPoint: pptx_create(path=\"/tmp/p.pptx\", slides=[{\"title\":\"Слайд 1\", \"content\":\"Текст слайда\"}])\n"
+        "   - Открыть файл: office_open(path=\"/tmp/doc.docx\")\n"
+        "   - Текстовый файл: data_write(path=\"file.txt\", content=\"текст\")\n"
+        "   - Прочитать файл: data_read(path=\"file.txt\")\n"
+        "4. Shell команда: run_shell(command=\"echo hello\")\n"
+        "5. Поиск: web_search_browser(query=\"запрос\")\n"
+        "6. ВАЖНО: НЕ используй browse_page для создания файлов или поиска.\n"
+        "7. Выполняй за МИНИМУМ шагов. После выполнения — сразу send_user_message с результатом."
     )
 
     @staticmethod
@@ -498,6 +499,37 @@ class LLMClient:
                         log.info("GigaChat: send_user_message detected, returning as final text")
                         return {"role": "assistant", "content": text, "tool_calls": []}, usage
                 except Exception:
+                    pass
+
+        # Handle case where model returns finish_reason=stop but content contains
+        # a raw JSON function call (e.g. {"name":"send_user_message","arguments":{...}})
+        if not tool_calls and msg.get("content"):
+            raw_content = str(msg["content"]).strip()
+            if raw_content.startswith(('{"name":', 'function call{')):
+                try:
+                    # Strip "function call" prefix if present
+                    json_str = raw_content
+                    if json_str.startswith("function call"):
+                        json_str = json_str[len("function call"):].strip()
+                    obj = json.loads(json_str)
+                    fn_name = obj.get("name", "")
+                    fn_args = obj.get("arguments", {})
+                    if fn_name == "send_user_message":
+                        text = fn_args.get("text") or fn_args.get("message") or fn_args.get("content") or ""
+                        if text:
+                            log.info("GigaChat: parsed send_user_message from raw JSON content")
+                            return {"role": "assistant", "content": text, "tool_calls": []}, usage
+                    elif fn_name:
+                        # Convert to proper tool_call format
+                        log.info("GigaChat: converting raw JSON content to tool_call: %s", fn_name)
+                        msg = dict(msg)
+                        msg["tool_calls"] = [{
+                            "id": "call_json_0",
+                            "type": "function",
+                            "function": {"name": fn_name, "arguments": json.dumps(fn_args)},
+                        }]
+                        msg["content"] = None
+                except (json.JSONDecodeError, ValueError, AttributeError):
                     pass
 
         return msg, usage
