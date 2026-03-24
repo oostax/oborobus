@@ -335,18 +335,15 @@ class LLMClient:
     # Keep only the most useful ones for everyday tasks
     _GIGACHAT_ALLOWED_TOOLS = frozenset({
         # File ops
-        "repo_read", "repo_list", "repo_write", "str_replace_editor", "repo_commit",
         "data_read", "data_write", "data_list",
-        # Shell removed — model misuses it for office tasks
-        # Browser & search (browser_action/git_status/git_diff removed — model misuses them)
-        "browse_page", "web_search_browser",
+        # Search
+        "web_search_browser",
         # Office
         "excel_create", "excel_read", "word_create", "pptx_create", "office_open",
-        # Communication — ALWAYS use send_user_message to reply to user
+        # Communication
         "send_user_message", "send_photo",
-        # Memory
+        # Memory — no update_scratchpad (model misuses it)
         "knowledge_read", "knowledge_write", "knowledge_list",
-        "update_scratchpad",
     })
 
     def _filter_tools_for_gigachat(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -365,21 +362,17 @@ class LLMClient:
 
     # GigaChat-specific instruction injected into system prompt
     _GIGACHAT_SYSTEM_HINT = (
-        "\n\n## Правила работы (ОБЯЗАТЕЛЬНО)\n\n"
-        "1. ВСЕГДА отвечай пользователю через `send_user_message` — это единственный способ отправить ответ.\n"
-        "2. На простые вопросы — сразу `send_user_message`, без лишних шагов.\n"
-        "3. Инструменты для файлов:\n"
-        "   - Word: word_create(path=\"doc.docx\", title=\"Заголовок\", content=[{\"type\":\"paragraph\",\"text\":\"абзац1\"},{\"type\":\"paragraph\",\"text\":\"абзац2\"}])\n"
-        "   - Excel: excel_create(path=\"t.xlsx\", sheets=[{\"name\":\"Лист1\", \"headers\":[\"Имя\",\"Возраст\"], \"rows\":[[\"Иван\",30],[\"Мария\",25]]}])\n"
-        "   - PowerPoint: pptx_create(path=\"p.pptx\", slides=[{\"title\":\"Слайд 1\", \"content\":\"Текст слайда\"}])\n"
-        "   - Открыть файл: office_open(path=\"doc.docx\")\n"
-        "   - Текстовый файл: data_write(path=\"file.txt\", content=\"текст\")\n"
-        "   - Прочитать файл: data_read(path=\"file.txt\")\n"
-        "4. Shell команда: run_shell(command=\"echo hello\")\n"
-        "5. Поиск: web_search_browser(query=\"запрос\")\n"
-        "6. ВАЖНО: НЕ используй browse_page для создания файлов или поиска.\n"
-        "7. Файлы сохраняются на Рабочий стол (~/Desktop) автоматически — указывай только имя файла без пути.\n"
-        "8. Выполняй за МИНИМУМ шагов. После выполнения — сразу send_user_message с результатом."
+        "\n\n## ПРАВИЛА (СТРОГО ОБЯЗАТЕЛЬНО)\n\n"
+        "1. На простые вопросы — СРАЗУ send_user_message(text=\"ответ\"). Без лишних шагов.\n"
+        "2. Для создания файлов используй ТОЛЬКО эти инструменты:\n"
+        "   word_create(path=\"doc.docx\", title=\"Заголовок\", content=[{\"type\":\"paragraph\",\"text\":\"текст\"}])\n"
+        "   excel_create(path=\"t.xlsx\", sheets=[{\"name\":\"Лист1\",\"headers\":[\"A\",\"B\"],\"rows\":[[1,2]]}])\n"
+        "   pptx_create(path=\"p.pptx\", slides=[{\"title\":\"Слайд\",\"content\":\"текст\"}])\n"
+        "   data_write(path=\"file.txt\", content=\"текст\")\n"
+        "3. Для поиска: web_search_browser(query=\"запрос\")\n"
+        "4. Файлы сохраняются на ~/Desktop автоматически — только имя файла.\n"
+        "5. ЗАПРЕЩЕНО: run_shell, browse_page, update_scratchpad, repo_write — этих инструментов НЕТ.\n"
+        "6. После выполнения задачи — СРАЗУ send_user_message с результатом. Не делай лишних шагов."
     )
 
     @staticmethod
