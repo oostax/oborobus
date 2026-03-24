@@ -372,13 +372,15 @@ class LLMClient:
         "1. ВСЕГДА отвечай пользователю через `send_user_message` — это единственный способ отправить ответ.\n"
         "2. На простые вопросы и приветствия — сразу вызывай `send_user_message` с ответом, без лишних шагов.\n"
         "3. Для создания файлов используй специализированные инструменты:\n"
-        "   - Word документы → `word_create`\n"
-        "   - Excel таблицы → `excel_create`\n"
-        "   - PowerPoint → `pptx_create`\n"
-        "   - Открыть файл → `office_open`\n"
-        "4. Для поиска в интернете → `web_search_browser` (НЕ browse_page).\n"
-        "5. Выполняй задачу за МИНИМАЛЬНОЕ количество шагов.\n"
-        "6. НЕ открывай браузер если задачу можно решить другим инструментом."
+        "   - Word документы → `word_create(path=\"/tmp/doc.docx\", title=\"Заголовок\", paragraphs=[\"текст\"])`\n"
+        "   - Excel таблицы → `excel_create(path=\"/tmp/table.xlsx\", sheets=[{\"name\":\"Лист1\",\"headers\":[\"A\",\"B\"],\"rows\":[[\"v1\",\"v2\"]]}])`\n"
+        "   - PowerPoint → `pptx_create(path=\"/tmp/pres.pptx\", slides=[{\"title\":\"Заголовок\",\"content\":\"Текст\"}])`\n"
+        "   - Открыть файл → `office_open(path=\"/tmp/doc.docx\")`\n"
+        "4. Для записи текстового файла → `data_write(path=\"имя_файла\", content=\"текст\")`.\n"
+        "5. Для чтения файла → `data_read(path=\"имя_файла\")`.\n"
+        "6. Для выполнения команды → `run_shell(command=\"команда\")`.\n"
+        "7. Для поиска в интернете → `web_search_browser(query=\"запрос\")`.\n"
+        "8. Выполняй задачу за МИНИМАЛЬНОЕ количество шагов. После выполнения — сразу `send_user_message`."
     )
 
     @staticmethod
