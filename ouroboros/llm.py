@@ -337,8 +337,7 @@ class LLMClient:
         # File ops
         "repo_read", "repo_list", "repo_write", "str_replace_editor", "repo_commit",
         "data_read", "data_write", "data_list",
-        # Shell
-        "run_shell",
+        # Shell removed — model misuses it for office tasks
         # Browser & search (browser_action/git_status/git_diff removed — model misuses them)
         "browse_page", "web_search_browser",
         # Office
