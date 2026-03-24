@@ -339,8 +339,7 @@ class LLMClient:
         "data_read", "data_write", "data_list",
         # Shell
         "run_shell",
-        # Browser & search (browser_action removed — too low-level, model misuses it)
-        # git_status/git_diff removed — model misuses them instead of office tools
+        # Browser & search (browser_action/git_status/git_diff removed — model misuses them)
         "browse_page", "web_search_browser",
         # Office
         "excel_create", "excel_read", "word_create", "pptx_create", "office_open",
@@ -455,9 +454,16 @@ class LLMClient:
         _GIGACHAT_TOOL_RESULT_LIMIT = 4000
         for m in clean:
             if m.get("role") == "tool":
-                content = m.get("content") or ""
-                if len(content) > _GIGACHAT_TOOL_RESULT_LIMIT:
-                    m["content"] = content[:_GIGACHAT_TOOL_RESULT_LIMIT] + f"\n...(truncated, {len(content)} chars total)"
+                c = m.get("content") or ""
+                if len(c) > _GIGACHAT_TOOL_RESULT_LIMIT:
+                    m["content"] = c[:_GIGACHAT_TOOL_RESULT_LIMIT] + f"\n...(truncated, {len(c)} chars total)"
+
+        # Check if history already has real tool calls (not send_user_message)
+        _real_tools_used = any(
+            (tc.get("function") or {}).get("name") not in ("send_user_message", "send_photo")
+            for m in clean if m.get("role") == "assistant"
+            for tc in (m.get("tool_calls") or [])
+        )
 
         capped = min(max_tokens, 4096)
         kwargs = {
@@ -479,35 +485,37 @@ class LLMClient:
         msg = choice.get("message") or {}
         finish_reason = choice.get("finish_reason", "")
         log.info("GigaChat response: choices=%s, finish_reason=%s",
-                 len(d.get("choices") or []),
-                 finish_reason)
+                 len(d.get("choices") or []), finish_reason)
 
-        # If model called send_user_message — treat it as final response.
-        # Extract the text and return it as plain content (no tool_calls),
-        # so the loop terminates instead of continuing.
+        # If model called send_user_message — treat as final ONLY if real tools were used
+        # or if there are no tools at all (simple chat). This prevents premature termination
+        # when model calls send_user_message instead of the actual requested tool.
         tool_calls = msg.get("tool_calls") or []
         if tool_calls:
             send_calls = [
                 tc for tc in tool_calls
                 if (tc.get("function") or {}).get("name") == "send_user_message"
             ]
-            if send_calls:
+            other_calls = [
+                tc for tc in tool_calls
+                if (tc.get("function") or {}).get("name") != "send_user_message"
+            ]
+            # Only terminate if: ONLY send_user_message called AND (no tools available OR real tools already used)
+            if send_calls and not other_calls and (not tools or _real_tools_used):
                 try:
                     args = json.loads(send_calls[-1]["function"]["arguments"] or "{}")
                     text = args.get("text") or args.get("message") or args.get("content") or ""
                     if text:
-                        log.info("GigaChat: send_user_message detected, returning as final text")
+                        log.info("GigaChat: send_user_message detected (real_tools_used=%s), returning as final text", _real_tools_used)
                         return {"role": "assistant", "content": text, "tool_calls": []}, usage
                 except Exception:
                     pass
 
-        # Handle case where model returns finish_reason=stop but content contains
-        # a raw JSON function call (e.g. {"name":"send_user_message","arguments":{...}})
+        # Handle case where model returns raw JSON function call in content
         if not tool_calls and msg.get("content"):
             raw_content = str(msg["content"]).strip()
-            if raw_content.startswith(('{"name":', 'function call{')):
+            if raw_content.startswith('{"name":') or raw_content.startswith("function call{"):
                 try:
-                    # Strip "function call" prefix if present
                     json_str = raw_content
                     if json_str.startswith("function call"):
                         json_str = json_str[len("function call"):].strip()
@@ -520,7 +528,6 @@ class LLMClient:
                             log.info("GigaChat: parsed send_user_message from raw JSON content")
                             return {"role": "assistant", "content": text, "tool_calls": []}, usage
                     elif fn_name:
-                        # Convert to proper tool_call format
                         log.info("GigaChat: converting raw JSON content to tool_call: %s", fn_name)
                         msg = dict(msg)
                         msg["tool_calls"] = [{
