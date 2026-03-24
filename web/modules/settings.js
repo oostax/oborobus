@@ -150,6 +150,29 @@ export function initSettings({ ws, state }) {
                 <div class="form-row"><div class="form-field"><label>GitHub Repo</label><input id="s-gh-repo" placeholder="owner/repo-name"></div></div>
             </div>
             <div class="divider"></div>
+            <div class="form-section">
+                <h3>GigaChat (Cloud.ru Foundation Models)</h3>
+                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+                    Используйте GigaChat вместо OpenRouter. API-ключ из <a href="https://cloud.ru/docs/foundation-models/ug/topics/quickstart" target="_blank" style="color:var(--accent)">cloud.ru</a>.
+                </div>
+                <div class="form-row">
+                    <div class="form-field"><label>GigaChat API Key</label><input id="s-gigachat-key" type="password" placeholder="Ваш API-ключ Cloud.ru" style="width:400px"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-field"><label>Модель</label><input id="s-gigachat-model" value="ai-sage/GigaChat3-10B-A1.8B" style="width:300px"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-field"><label>Base URL</label><input id="s-gigachat-url" value="https://foundation-models.api.cloud.ru/v1" style="width:400px"></div>
+                </div>
+                <div class="form-row" style="align-items:center;gap:8px">
+                    <label class="local-toggle"><input type="checkbox" id="s-use-gigachat"> Использовать GigaChat как основной провайдер</label>
+                </div>
+                <div id="gigachat-status" style="margin-top:8px;font-size:13px;display:none"></div>
+                <div class="form-row" style="margin-top:8px">
+                    <button class="btn btn-primary" id="btn-gigachat-test">Проверить подключение</button>
+                </div>
+            </div>
+            <div class="divider"></div>
             <div class="form-row">
                 <button class="btn btn-save" id="btn-save-settings">Save Settings</button>
             </div>
@@ -163,7 +186,7 @@ export function initSettings({ ws, state }) {
     `;
     document.getElementById('content').appendChild(page);
 
-    const secretInputIds = ['s-openrouter', 's-openai', 's-anthropic', 's-gh-token'];
+    const secretInputIds = ['s-openrouter', 's-openai', 's-anthropic', 's-gh-token', 's-gigachat-key'];
     secretInputIds.forEach((id) => {
         const input = document.getElementById(id);
         input.addEventListener('focus', () => {
@@ -204,6 +227,11 @@ export function initSettings({ ws, state }) {
         document.getElementById('s-local-code').checked = s.USE_LOCAL_CODE === true || s.USE_LOCAL_CODE === 'True';
         document.getElementById('s-local-light').checked = s.USE_LOCAL_LIGHT === true || s.USE_LOCAL_LIGHT === 'True';
         document.getElementById('s-local-fallback').checked = s.USE_LOCAL_FALLBACK === true || s.USE_LOCAL_FALLBACK === 'True';
+        // GigaChat
+        if (s.GIGACHAT_API_KEY) document.getElementById('s-gigachat-key').value = s.GIGACHAT_API_KEY;
+        if (s.GIGACHAT_MODEL) document.getElementById('s-gigachat-model').value = s.GIGACHAT_MODEL;
+        if (s.GIGACHAT_BASE_URL) document.getElementById('s-gigachat-url').value = s.GIGACHAT_BASE_URL;
+        document.getElementById('s-use-gigachat').checked = s.USE_GIGACHAT === true || s.USE_GIGACHAT === 'True';
     }
 
     async function loadSettings() {
@@ -328,6 +356,12 @@ export function initSettings({ ws, state }) {
         if (antKey && !antKey.includes('...')) body.ANTHROPIC_API_KEY = antKey;
         const ghToken = document.getElementById('s-gh-token').value;
         if (ghToken && !ghToken.includes('...')) body.GITHUB_TOKEN = ghToken;
+        // GigaChat
+        body.GIGACHAT_MODEL = document.getElementById('s-gigachat-model').value;
+        body.GIGACHAT_BASE_URL = document.getElementById('s-gigachat-url').value;
+        body.USE_GIGACHAT = document.getElementById('s-use-gigachat').checked;
+        const gcKey = document.getElementById('s-gigachat-key').value;
+        if (gcKey && !gcKey.includes('...')) body.GIGACHAT_API_KEY = gcKey;
 
         try {
             const resp = await fetch('/api/settings', {
@@ -347,6 +381,39 @@ export function initSettings({ ws, state }) {
             setTimeout(() => status.style.display = 'none', 4000);
         } catch (e) {
             alert('Failed to save: ' + e.message);
+        }
+    });
+
+    document.getElementById('btn-gigachat-test').addEventListener('click', async () => {
+        const statusEl = document.getElementById('gigachat-status');
+        statusEl.style.display = 'block';
+        statusEl.style.color = 'var(--text-secondary)';
+        statusEl.textContent = 'Проверка подключения...';
+        const key = document.getElementById('s-gigachat-key').value.trim();
+        const url = document.getElementById('s-gigachat-url').value.trim();
+        const model = document.getElementById('s-gigachat-model').value.trim();
+        if (!key || key.includes('...')) {
+            statusEl.textContent = 'Введите API-ключ GigaChat';
+            statusEl.style.color = 'var(--amber)';
+            return;
+        }
+        try {
+            const resp = await fetch('/api/gigachat/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: key, base_url: url, model }),
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (data.ok) {
+                statusEl.textContent = '✓ Подключение успешно: ' + (data.model || model);
+                statusEl.style.color = 'var(--green)';
+            } else {
+                statusEl.textContent = '✗ Ошибка: ' + (data.error || 'неизвестная ошибка');
+                statusEl.style.color = 'var(--red)';
+            }
+        } catch (e) {
+            statusEl.textContent = '✗ ' + e.message;
+            statusEl.style.color = 'var(--red)';
         }
     });
 

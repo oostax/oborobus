@@ -585,6 +585,35 @@ async def api_settings_post(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(e)}, status_code=400)
 
 
+async def api_gigachat_test(request: Request) -> JSONResponse:
+    """Test GigaChat (Cloud.ru Foundation Models) connectivity."""
+    try:
+        body = await request.json()
+        api_key = body.get("api_key", "").strip()
+        base_url = body.get("base_url", "https://foundation-models.api.cloud.ru/v1").strip()
+        model = body.get("model", "ai-sage/GigaChat3-10B-A1.8B").strip()
+        if not api_key:
+            return JSONResponse({"ok": False, "error": "API key required"})
+        import urllib.request, json as _json
+        req_data = _json.dumps({
+            "model": model,
+            "messages": [{"role": "user", "content": "Hi"}],
+            "max_tokens": 5,
+        }).encode()
+        req = urllib.request.Request(
+            f"{base_url}/chat/completions",
+            data=req_data,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = _json.loads(resp.read())
+        used_model = result.get("model", model)
+        return JSONResponse({"ok": True, "model": used_model})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)})
+
+
 async def api_reset(request: Request) -> JSONResponse:
     """Reset all runtime data (state, memory, logs, settings) but keep repo.
 
@@ -866,6 +895,7 @@ routes = [
     Route("/api/state", endpoint=api_state),
     Route("/api/settings", endpoint=api_settings_get, methods=["GET"]),
     Route("/api/settings", endpoint=api_settings_post, methods=["POST"]),
+    Route("/api/gigachat/test", endpoint=api_gigachat_test, methods=["POST"]),
     Route("/api/command", endpoint=api_command, methods=["POST"]),
     Route("/api/reset", endpoint=api_reset, methods=["POST"]),
     Route("/api/git/log", endpoint=api_git_log),
