@@ -331,25 +331,69 @@ class LLMClient:
         return OpenAI(base_url=base_url, api_key=api_key, max_retries=0,
                       http_client=httpx.Client(verify=False))
 
+    # Tools to pass to GigaChat — small models can't handle 60+ tools
+    # Keep only the most useful ones for everyday tasks
+    _GIGACHAT_ALLOWED_TOOLS = frozenset({
+        # File ops
+        "repo_read", "repo_list", "repo_write", "str_replace_editor", "repo_commit",
+        "data_read", "data_write", "data_list",
+        # Shell
+        "run_shell",
+        # Git
+        "git_status", "git_diff",
+        # Browser & search
+        "browse_page", "browser_action", "web_search_browser",
+        # Office
+        "excel_create", "excel_read", "word_create", "pptx_create", "office_open",
+        # Communication
+        "send_user_message", "send_photo",
+        # Memory
+        "knowledge_read", "knowledge_write", "knowledge_list",
+        "update_scratchpad",
+    })
+
+    def _filter_tools_for_gigachat(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Keep only allowed tools to fit GigaChat small model context."""
+        if not tools:
+            return tools
+        filtered = []
+        for t in tools:
+            name = ""
+            if isinstance(t, dict):
+                name = t.get("name") or (t.get("function") or {}).get("name") or ""
+            if name in self._GIGACHAT_ALLOWED_TOOLS:
+                filtered.append(t)
+        log.debug("GigaChat tool filter: %d → %d tools", len(tools), len(filtered))
+        return filtered
+
     def _chat_gigachat(self, messages, tools, max_tokens, tool_choice):
         model = os.environ.get("GIGACHAT_MODEL", "ai-sage/GigaChat3-10B-A1.8B")
         client = self._get_gigachat_client()
         clean = self._strip_cache_control(messages)
+
+        # Flatten multipart content + compact system prompt for small model
         for m in clean:
             c = m.get("content")
             if isinstance(c, list):
-                m["content"] = "\n\n".join(b.get("text","") for b in c if isinstance(b,dict) and b.get("type")=="text")
+                m["content"] = "\n\n".join(
+                    b.get("text", "") for b in c
+                    if isinstance(b, dict) and b.get("type") == "text"
+                )
+            if m.get("role") == "system" and isinstance(m.get("content"), str):
+                m["content"] = _compact_local_system_text(m["content"])
+
         capped = min(max_tokens, 4096)
-        # Cloud.ru uses max_completion_tokens, pass via extra_body to bypass OpenAI SDK mapping
         kwargs = {
             "model": model,
             "messages": clean,
             "extra_body": {"max_completion_tokens": capped},
         }
         if tools:
-            clean_tools = [{k: v for k, v in t.items() if k != "cache_control"} for t in tools]
-            kwargs["tools"] = clean_tools
-            kwargs["tool_choice"] = tool_choice
+            filtered = self._filter_tools_for_gigachat(tools)
+            if filtered:
+                clean_tools = [{k: v for k, v in t.items() if k != "cache_control"} for t in filtered]
+                kwargs["tools"] = clean_tools
+                kwargs["tool_choice"] = tool_choice
         resp = client.chat.completions.create(**kwargs)
         d = resp.model_dump()
         usage = d.get("usage") or {}
