@@ -393,7 +393,8 @@ class LLMClient:
             if filtered:
                 clean_tools = [{k: v for k, v in t.items() if k != "cache_control"} for t in filtered]
                 kwargs["tools"] = clean_tools
-                kwargs["tool_choice"] = tool_choice
+                # GigaChat ignores tool_choice="auto" — use "required" to force tool selection
+                kwargs["tool_choice"] = "required"
         resp = client.chat.completions.create(**kwargs)
         d = resp.model_dump()
         usage = d.get("usage") or {}
