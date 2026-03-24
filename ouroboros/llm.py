@@ -339,9 +339,8 @@ class LLMClient:
         "data_read", "data_write", "data_list",
         # Shell
         "run_shell",
-        # Git
-        "git_status", "git_diff",
         # Browser & search (browser_action removed — too low-level, model misuses it)
+        # git_status/git_diff removed — model misuses them instead of office tools
         "browse_page", "web_search_browser",
         # Office
         "excel_create", "excel_read", "word_create", "pptx_create", "office_open",
@@ -372,16 +371,17 @@ class LLMClient:
         "1. ВСЕГДА отвечай пользователю через `send_user_message` — это единственный способ отправить ответ.\n"
         "2. На простые вопросы — сразу `send_user_message`, без лишних шагов.\n"
         "3. Инструменты для файлов:\n"
-        "   - Word: word_create(path=\"/tmp/doc.docx\", title=\"Заголовок\", paragraphs=[\"абзац1\", \"абзац2\"])\n"
-        "   - Excel: excel_create(path=\"/tmp/t.xlsx\", sheets=[{\"name\":\"Лист1\", \"headers\":[\"Имя\",\"Возраст\"], \"rows\":[[\"Иван\",30],[\"Мария\",25]]}])\n"
-        "   - PowerPoint: pptx_create(path=\"/tmp/p.pptx\", slides=[{\"title\":\"Слайд 1\", \"content\":\"Текст слайда\"}])\n"
-        "   - Открыть файл: office_open(path=\"/tmp/doc.docx\")\n"
+        "   - Word: word_create(path=\"doc.docx\", title=\"Заголовок\", content=[{\"type\":\"paragraph\",\"text\":\"абзац1\"},{\"type\":\"paragraph\",\"text\":\"абзац2\"}])\n"
+        "   - Excel: excel_create(path=\"t.xlsx\", sheets=[{\"name\":\"Лист1\", \"headers\":[\"Имя\",\"Возраст\"], \"rows\":[[\"Иван\",30],[\"Мария\",25]]}])\n"
+        "   - PowerPoint: pptx_create(path=\"p.pptx\", slides=[{\"title\":\"Слайд 1\", \"content\":\"Текст слайда\"}])\n"
+        "   - Открыть файл: office_open(path=\"doc.docx\")\n"
         "   - Текстовый файл: data_write(path=\"file.txt\", content=\"текст\")\n"
         "   - Прочитать файл: data_read(path=\"file.txt\")\n"
         "4. Shell команда: run_shell(command=\"echo hello\")\n"
         "5. Поиск: web_search_browser(query=\"запрос\")\n"
         "6. ВАЖНО: НЕ используй browse_page для создания файлов или поиска.\n"
-        "7. Выполняй за МИНИМУМ шагов. После выполнения — сразу send_user_message с результатом."
+        "7. Файлы сохраняются на Рабочий стол (~/Desktop) автоматически — указывай только имя файла без пути.\n"
+        "8. Выполняй за МИНИМУМ шагов. После выполнения — сразу send_user_message с результатом."
     )
 
     @staticmethod

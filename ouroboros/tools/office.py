@@ -26,14 +26,27 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _resolve_path(ctx: ToolContext, path: str) -> pathlib.Path:
-    """Resolve path: absolute stays absolute, relative goes to ~/Documents."""
+    """Resolve path: absolute stays absolute, relative goes to ~/Desktop."""
     p = pathlib.Path(path).expanduser()
     if p.is_absolute():
         return p
-    # Default save location: ~/Documents/Ouroboros/
-    base = pathlib.Path.home() / "Documents" / "Ouroboros"
+    # Default save location: ~/Desktop/
+    base = pathlib.Path.home() / "Desktop"
     base.mkdir(parents=True, exist_ok=True)
     return base / path
+
+
+def _auto_open(path: pathlib.Path) -> None:
+    """Open file in default OS app after creation."""
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        elif sys.platform == "win32":
+            os.startfile(str(path))
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+    except Exception as e:
+        log.warning("auto_open failed for %s: %s", path, e)
 
 
 def _ensure_lib(name: str) -> Optional[str]:
@@ -144,6 +157,7 @@ def _excel_create(
             ws.freeze_panes = "A2"
 
     wb.save(str(target))
+    _auto_open(target)
     return f"✅ Excel saved: {target}\n{len(sheets)} sheet(s), {sum(len(s.get('rows',[])) for s in sheets)} data rows."
 
 
@@ -256,6 +270,7 @@ def _word_create(
             doc.add_page_break()
 
     doc.save(str(target))
+    _auto_open(target)
     return f"✅ Word document saved: {target}"
 
 
@@ -372,6 +387,7 @@ def _pptx_create(
         target = target.with_suffix(".pptx")
     target.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(target))
+    _auto_open(target)
     return f"✅ Presentation saved: {target} ({len(slides)} slide(s))"
 
 
