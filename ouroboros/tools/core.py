@@ -53,6 +53,16 @@ def _repo_list(ctx: ToolContext, dir: str = ".", max_entries: int = 500) -> str:
 
 
 def _data_read(ctx: ToolContext, path: str) -> str:
+    import pathlib
+    p = pathlib.Path(path)
+    # If absolute path — use directly (e.g. /tmp/file.txt)
+    if p.is_absolute():
+        if not p.exists():
+            return f"⚠️ File not found: {path}"
+        try:
+            return p.read_text(encoding="utf-8")
+        except Exception as e:
+            return f"⚠️ Error reading {path}: {e}"
     return read_text(ctx.drive_path(path))
 
 
@@ -61,6 +71,17 @@ def _data_list(ctx: ToolContext, dir: str = ".", max_entries: int = 500) -> str:
 
 
 def _data_write(ctx: ToolContext, path: str, content: str, mode: str = "overwrite") -> str:
+    import pathlib
+    p_raw = pathlib.Path(path)
+    # If absolute path — write directly
+    if p_raw.is_absolute():
+        p_raw.parent.mkdir(parents=True, exist_ok=True)
+        if mode == "overwrite":
+            p_raw.write_text(content, encoding="utf-8")
+        else:
+            with p_raw.open("a", encoding="utf-8") as f:
+                f.write(content)
+        return f"OK: wrote {mode} {path} ({len(content)} chars)"
     p = ctx.drive_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     if mode == "overwrite":
