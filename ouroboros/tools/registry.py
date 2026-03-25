@@ -364,6 +364,7 @@ class ToolRegistry:
         # --- LLM Safety Supervisor ---
         # Skip safety check when GigaChat is active — it uses OpenRouter which is unavailable
         _skip_safety = os.environ.get("USE_GIGACHAT", "").lower() in ("true", "1")
+        safety_msg = ""
         if not _skip_safety:
             from ouroboros.safety import check_safety
             is_safe, safety_msg = check_safety(
