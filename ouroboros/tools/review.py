@@ -158,9 +158,9 @@ async def _multi_model_review_async(content: str, prompt: str,
     if len(models) > MAX_MODELS:
         return {"error": f"Too many models ({len(models)}). Maximum is {MAX_MODELS}."}
 
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    api_key = os.environ.get("API_KEY", "") or os.environ.get("OPENROUTER_API_KEY", "")
     if not api_key:
-        return {"error": "OPENROUTER_API_KEY not set"}
+        return {"error": "API_KEY not set — skipping review"}
 
     bible_text = _load_bible()
     if bible_text:
