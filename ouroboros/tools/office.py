@@ -1,4 +1,4 @@
-"""Office tools — Excel, Word, PowerPoint automation for business users.
+"""Office tools -- Excel, Word, PowerPoint automation for business users.
 
 Tools:
   - excel_create   : create/edit .xlsx (tables, formulas, formatting, charts)
@@ -65,20 +65,48 @@ def _ensure_lib(name: str) -> Optional[str]:
 def _excel_create(
     ctx: ToolContext,
     path: str,
-    sheets: List[Dict[str, Any]],
+    sheets: List[Dict[str, Any]] = None,
     overwrite: bool = True,
+    # Flat format (model often passes these directly)
+    headers: List[str] = None,
+    rows: List[Any] = None,
 ) -> str:
     """Create or update an Excel file.
 
+    Accepts two formats:
+    1. sheets=[{name, headers, rows, ...}]  -- full format
+    2. headers=[...], rows=[[...]]          -- flat format (auto-wrapped into one sheet)
+
     Each sheet dict:
-      name: str — sheet name
-      headers: list[str] — column headers (optional)
-      rows: list[list] — data rows
-      col_widths: dict[str, int] — column letter → width (optional)
-      freeze_top_row: bool — freeze header row (optional)
-      formulas: list[{cell, formula}] — e.g. {cell: "D2", formula: "=B2*C2"} (optional)
-      number_format: dict[str, str] — column letter → format string (optional)
+      name: str -- sheet name
+      headers: list[str] -- column headers (optional)
+      rows: list[list] -- data rows
     """
+    # Normalize flat format → sheets format
+    if sheets is None:
+        if headers is not None or rows is not None:
+            # rows might be list of dicts -- convert to list of lists
+            norm_rows = []
+            for r in (rows or []):
+                if isinstance(r, dict):
+                    norm_rows.append(list(r.values()))
+                elif isinstance(r, list):
+                    norm_rows.append(r)
+                else:
+                    norm_rows.append([r])
+            sheets = [{"name": "Лист1", "headers": headers or [], "rows": norm_rows}]
+        else:
+            return "⚠️ excel_create: provide either 'sheets' or 'headers'+'rows'"
+    else:
+        # rows inside sheets might be list of dicts too
+        for sheet in sheets:
+            norm = []
+            for r in sheet.get("rows", []):
+                if isinstance(r, dict):
+                    norm.append(list(r.values()))
+                else:
+                    norm.append(r)
+            sheet["rows"] = norm
     err = _ensure_lib("openpyxl")
     if err:
         return err
@@ -289,9 +317,9 @@ def _pptx_create(
     Each slide dict:
       layout: "title" | "content" | "two_col" | "blank" (default: "content")
       title: str
-      content: str | list[str]  — body text or bullet list
-      table: {headers: [...], rows: [[...]]}  — optional table on slide
-      notes: str  — speaker notes
+      content: str or list[str]  -- body text or bullet list
+      table: {headers: [...], rows: [[...]]}  -- optional table on slide
+      notes: str  -- speaker notes
     """
     err = _ensure_lib("pptx")
     if err:
@@ -430,7 +458,7 @@ def get_tools() -> List[ToolEntry]:
                 "path": {"type": "string", "description": "File path, e.g. 'report.xlsx' or '/Users/me/report.xlsx'"},
                 "sheets": {
                     "type": "array",
-                    "description": "List of sheet definitions",
+                    "description": "List of sheet definitions. Alternative: use top-level 'headers' and 'rows' for single sheet.",
                     "items": {"type": "object", "properties": {
                         "name": {"type": "string"},
                         "headers": {"type": "array", "items": {"type": "string"}},
@@ -441,8 +469,11 @@ def get_tools() -> List[ToolEntry]:
                         "number_format": {"type": "object"},
                     }},
                 },
+                "headers": {"type": "array", "items": {"type": "string"},
+                            "description": "Column headers for single-sheet shortcut (alternative to sheets)"},
+                "rows": {"type": "array", "description": "Data rows for single-sheet shortcut"},
                 "overwrite": {"type": "boolean", "default": True},
-            }, "required": ["path", "sheets"]},
+            }, "required": ["path"]},
         }, _excel_create),
         ToolEntry("excel_read", {
             "name": "excel_read",
