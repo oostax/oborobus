@@ -172,7 +172,7 @@ def check_safety(
                     getattr(ctx, "task_id", "") if ctx is not None else "",
                     model_name, usage, cost,
                     category="safety",
-                    provider="local" if _use_local_light else "openrouter",
+                    provider="local" if _use_local_light else "cloudru",
                     source="safety_light",
                 )
             else:
@@ -231,7 +231,7 @@ def check_safety(
                     getattr(ctx, "task_id", "") if ctx is not None else "",
                     model_name, usage, cost,
                     category="safety",
-                    provider="local" if _use_local_code else "openrouter",
+                    provider="local" if _use_local_code else "cloudru",
                     source="safety_deep",
                 )
             else:

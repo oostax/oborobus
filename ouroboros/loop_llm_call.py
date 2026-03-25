@@ -93,7 +93,7 @@ def call_llm_with_retry(
                 cost = 0.0
                 display_model = f"{model} (local)"
             else:
-                provider = "openrouter"
+                provider = "cloudru"
                 if cost == 0.0:
                     cost = estimate_cost(
                         model,

@@ -15,7 +15,7 @@ from ouroboros.utils import utc_now_iso
 
 log = logging.getLogger(__name__)
 
-DEFAULT_SEARCH_MODEL = "gpt-5.2"
+DEFAULT_SEARCH_MODEL = "gpt-5.2"  # requires OPENAI_API_KEY
 DEFAULT_SEARCH_CONTEXT_SIZE = "medium"
 DEFAULT_REASONING_EFFORT = "high"
 

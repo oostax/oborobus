@@ -62,7 +62,7 @@ log = logging.getLogger(__name__)
 BLOCK_SIZE = 100                          # Messages per consolidation block
 MAX_SUMMARY_BLOCKS = 10                   # Compress into era when exceeded
 ERA_COMPRESS_COUNT = 4                    # Oldest blocks to compress per era
-CONSOLIDATION_MODEL = "google/gemini-3-flash-preview"
+CONSOLIDATION_MODEL = os.environ.get("OUROBOROS_MODEL_LIGHT", "ai-sage/GigaChat3-10B-A1.8B")
 CONSOLIDATION_REASONING_EFFORT = "medium"
 MAX_SUMMARY_CHARS = 90000                 # Hard cap preserved from old system
 

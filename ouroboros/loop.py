@@ -349,7 +349,7 @@ def run_llm_loop(
                 tools._ctx.messages = messages
             if _compaction_usage:
                 add_usage(accumulated_usage, _compaction_usage)
-                _cm = os.environ.get("OUROBOROS_MODEL_LIGHT") or "anthropic/claude-sonnet-4.6"
+                _cm = os.environ.get("OUROBOROS_MODEL_LIGHT") or "ai-sage/GigaChat3-10B-A1.8B"
                 _cc = float(_compaction_usage.get("cost") or 0) or estimate_cost(
                     _cm, int(_compaction_usage.get("prompt_tokens") or 0),
                     int(_compaction_usage.get("completion_tokens") or 0),
