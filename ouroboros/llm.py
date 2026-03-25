@@ -248,7 +248,8 @@ class LLMClient:
         if tools:
             clean_tools = [{k: v for k, v in t.items() if k != "cache_control"} for t in tools]
             kwargs["tools"] = clean_tools
-            kwargs["tool_choice"] = tool_choice
+            # Force tool use — GigaChat tends to respond with text instead of calling tools
+            kwargs["tool_choice"] = "required" if tool_choice == "auto" else tool_choice
 
         kwargs = self._sanitize_payload(clean_messages, kwargs)
 
