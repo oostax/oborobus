@@ -925,7 +925,7 @@ async def lifespan(app):
     )
 
     settings = load_settings()
-    has_api_key = bool(settings.get("OPENROUTER_API_KEY"))
+    has_api_key = bool(settings.get("OPENROUTER_API_KEY") or settings.get("API_KEY"))
     has_gigachat = bool(settings.get("GIGACHAT_API_KEY")) and settings.get("USE_GIGACHAT") in (True, "true", "True", "1", 1)
     has_local = has_local_routing(settings)
 
