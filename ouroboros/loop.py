@@ -272,7 +272,7 @@ def run_llm_loop(
     active_model = llm.default_model()
     active_effort = initial_effort
     active_use_local = os.environ.get("USE_LOCAL_MAIN", "").lower() in ("true", "1")
-    active_use_gigachat = os.environ.get("USE_GIGACHAT", "").lower() in ("true", "1")
+    active_use_gigachat = False  # removed: Cloud.ru is now the default backend
 
     llm_trace: Dict[str, Any] = {"reasoning_notes": [], "tool_calls": []}
     accumulated_usage: Dict[str, Any] = {}
@@ -289,13 +289,10 @@ def run_llm_loop(
     stateful_executor = StatefulToolExecutor()
     _owner_msg_seen: set = set()
     try:
-        if active_use_gigachat:
-            MAX_ROUNDS = max(1, int(os.environ.get("GIGACHAT_MAX_ROUNDS", "12")))
-        else:
-            MAX_ROUNDS = max(1, int(os.environ.get("OUROBOROS_MAX_ROUNDS", "200")))
+        MAX_ROUNDS = max(1, int(os.environ.get("OUROBOROS_MAX_ROUNDS", "200")))
     except (ValueError, TypeError):
-        MAX_ROUNDS = 12 if active_use_gigachat else 200
-        log.warning("Invalid MAX_ROUNDS env var, defaulting to %d", MAX_ROUNDS)
+        MAX_ROUNDS = 200
+        log.warning("Invalid MAX_ROUNDS env var, defaulting to 200")
     round_idx = 0
     try:
         while True:

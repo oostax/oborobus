@@ -80,6 +80,7 @@ SETTINGS_DEFAULTS = {
     "USE_LOCAL_LIGHT": False,
     "USE_LOCAL_FALLBACK": False,
     # GigaChat / Cloud.ru Foundation Models
+    "API_KEY": "",
     "GIGACHAT_API_KEY": "",
     "GIGACHAT_BASE_URL": "https://foundation-models.api.cloud.ru/v1",
     "GIGACHAT_MODEL": "ai-sage/GigaChat3-10B-A1.8B",
@@ -210,6 +211,7 @@ def apply_settings_to_env(settings: dict) -> None:
     """Push settings into environment variables for supervisor modules."""
     env_keys = [
         "OPENROUTER_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
+        "API_KEY",
         "OUROBOROS_MODEL", "OUROBOROS_MODEL_CODE", "OUROBOROS_MODEL_LIGHT",
         "OUROBOROS_MODEL_FALLBACK", "CLAUDE_CODE_MODEL",
         "TOTAL_BUDGET", "GITHUB_TOKEN", "GITHUB_REPO",
