@@ -743,18 +743,29 @@ def build_llm_messages(
 
     memory.ensure_files()
 
+    # For small models (GigaChat) — skip heavy docs to fit context window
+    _is_small_model = "GigaChat" in os.environ.get("OUROBOROS_MODEL", "") or \
+                      "GigaChat" in os.environ.get("OUROBOROS_MODEL_LIGHT", "")
+
+    if _is_small_model:
+        # Compact bible for small models
+        bible_content = "You are Ouroboros, an AI agent running on macOS. Use tools to complete tasks. Be concise."
+    else:
+        bible_content = bible_md
+
     static_text = (
         base_prompt + "\n\n"
-        + "## BIBLE.md\n\n" + bible_md
+        + "## BIBLE.md\n\n" + bible_content
     )
-    if arch_md.strip():
-        static_text += "\n\n## ARCHITECTURE.md\n\n" + arch_md
-    if dev_guide_md.strip():
-        static_text += "\n\n## DEVELOPMENT.md\n\n" + dev_guide_md
-    if readme_md.strip():
-        static_text += "\n\n## README.md\n\n" + readme_md
-    if checklists_md.strip():
-        static_text += "\n\n## CHECKLISTS.md\n\n" + checklists_md
+    if not _is_small_model:
+        if arch_md.strip():
+            static_text += "\n\n## ARCHITECTURE.md\n\n" + arch_md
+        if dev_guide_md.strip():
+            static_text += "\n\n## DEVELOPMENT.md\n\n" + dev_guide_md
+        if readme_md.strip():
+            static_text += "\n\n## README.md\n\n" + readme_md
+        if checklists_md.strip():
+            static_text += "\n\n## CHECKLISTS.md\n\n" + checklists_md
 
     semi_stable_parts = []
     semi_stable_parts.extend(build_memory_sections(memory))
