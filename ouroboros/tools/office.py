@@ -225,7 +225,7 @@ def _excel_read(ctx: ToolContext, path: str, sheet: str = "", max_rows: int = 20
 
 def _word_create(
     ctx: ToolContext,
-    path: str,
+    path: str = "document.docx",
     content: Any = None,
     title: str = "",
     text: str = "",
@@ -264,6 +264,9 @@ def _word_create(
     if isinstance(content, str):
         # Plain string → paragraph
         content = [{"type": "paragraph", "text": content}]
+    if isinstance(content, dict):
+        # Single block → wrap in list
+        content = [content]
     if text and not content:
         content = [{"type": "paragraph", "text": text}]
 
@@ -519,7 +522,7 @@ def get_tools() -> List[ToolEntry]:
                     ],
                 },
                 "text": {"type": "string", "description": "Plain text shortcut (alternative to content)"},
-            }, "required": ["path"]},
+            }, "required": []},
         }, _word_create),
         ToolEntry("pptx_create", {
             "name": "pptx_create",
