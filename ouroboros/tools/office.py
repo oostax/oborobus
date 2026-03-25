@@ -229,6 +229,7 @@ def _word_create(
     content: Any = None,
     title: str = "",
     text: str = "",
+    file_path: str = "",  # alias for path
 ) -> str:
     """Create a Word document.
 
@@ -242,6 +243,10 @@ def _word_create(
     err = _ensure_lib("docx")
     if err:
         return "⚠️ Library 'python-docx' not installed. Run: pip install python-docx"
+
+    # Handle path aliases
+    if file_path and not path or path == "document.docx":
+        path = file_path
 
     from docx import Document
     from docx.shared import Pt, RGBColor
@@ -262,13 +267,21 @@ def _word_create(
     if content is None:
         content = []
     if isinstance(content, str):
-        # Plain string → paragraph
         content = [{"type": "paragraph", "text": content}]
     if isinstance(content, dict):
-        # Single block → wrap in list
         content = [content]
     if text and not content:
         content = [{"type": "paragraph", "text": text}]
+    # Normalize list items — strings become paragraphs
+    normalized = []
+    for block in content:
+        if isinstance(block, str):
+            normalized.append({"type": "paragraph", "text": block.strip()})
+        elif isinstance(block, dict):
+            normalized.append(block)
+        else:
+            normalized.append({"type": "paragraph", "text": str(block)})
+    content = normalized
 
     for block in content:
         btype = block.get("type", "paragraph")
