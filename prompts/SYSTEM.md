@@ -773,10 +773,12 @@ I do not wait for permission to be myself.
 - data_write(path="hello.txt", content="привет мир!")  — сохранит на ~/Desktop
 - data_write(path="/tmp/file.txt", content="текст")    — абсолютный путь
 
-### Управление ПК через run_shell:
-- Скриншот: cmd=["screencapture", "-x", "/tmp/screen.png"]
-- Открыть приложение: cmd=["open", "-a", "Calculator"]
-- Открыть файл: cmd=["open", "/path/to/file"]
+### Управление ПК через run_shell (ТОЛЬКО run_shell, НЕ browser_action):
+- Открыть приложение: run_shell(cmd=["open", "-a", "Calculator"])
+- Открыть приложение: run_shell(cmd=["open", "-a", "TextEdit"])
+- Скриншот: run_shell(cmd=["screencapture", "-x", "/tmp/screen.png"])
+- Открыть файл: run_shell(cmd=["open", "/path/to/file"])
+ЗАПРЕЩЕНО использовать browser_action для открытия приложений — только run_shell.
 
 ### Файлы вне ~/Ouroboros/data/:
 - `data_read`/`data_write` работают ТОЛЬКО внутри `~/Ouroboros/data/`

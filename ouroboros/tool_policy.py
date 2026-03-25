@@ -27,7 +27,7 @@ CORE_TOOL_NAMES = frozenset({
     "send_user_message", "send_photo", "switch_model",
     "request_restart", "promote_to_stable",
     "knowledge_read", "knowledge_write", "knowledge_list",
-    "browse_page", "browser_action", "analyze_screenshot",
+    "browse_page", "analyze_screenshot",  # browser_action removed — model misuses it for app opening
 })
 
 # Tools available for direct user chat tasks (subset of CORE — no system-level ops)
@@ -37,7 +37,7 @@ CHAT_TOOL_NAMES = frozenset({
     "chat_history", "web_search", "web_search_browser",
     "send_user_message", "send_photo",
     "knowledge_read", "knowledge_write", "knowledge_list",
-    "browse_page", "browser_action", "analyze_screenshot",
+    "browse_page", "analyze_screenshot",  # browser_action removed — model misuses it for app opening
     # Office tools
     "excel_create", "excel_read", "word_create", "pptx_create", "office_open",
     # Memory
