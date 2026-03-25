@@ -226,17 +226,18 @@ def _excel_read(ctx: ToolContext, path: str, sheet: str = "", max_rows: int = 20
 def _word_create(
     ctx: ToolContext,
     path: str,
-    content: List[Dict[str, Any]],
+    content: Any = None,
     title: str = "",
+    text: str = "",
 ) -> str:
     """Create a Word document.
 
-    content is a list of blocks:
+    content is a list of blocks OR a plain string:
       {type: "heading", text: "...", level: 1}
       {type: "paragraph", text: "..."}
       {type: "table", headers: [...], rows: [[...], ...]}
       {type: "bullet", items: ["...", "..."]}
-      {type: "pagebreak"}
+    Also accepts: content="plain text" or text="plain text"
     """
     err = _ensure_lib("docx")
     if err:
@@ -256,6 +257,15 @@ def _word_create(
     if title:
         h = doc.add_heading(title, level=0)
         h.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Normalize content
+    if content is None:
+        content = []
+    if isinstance(content, str):
+        # Plain string → paragraph
+        content = [{"type": "paragraph", "text": content}]
+    if text and not content:
+        content = [{"type": "paragraph", "text": text}]
 
     for block in content:
         btype = block.get("type", "paragraph")
@@ -494,19 +504,22 @@ def get_tools() -> List[ToolEntry]:
                 "path": {"type": "string", "description": "File path, e.g. 'memo.docx'"},
                 "title": {"type": "string", "description": "Document title (optional)"},
                 "content": {
-                    "type": "array",
-                    "description": "List of content blocks",
-                    "items": {"type": "object", "properties": {
-                        "type": {"type": "string", "enum": ["heading", "paragraph", "bullet", "table", "pagebreak"]},
-                        "text": {"type": "string"},
-                        "level": {"type": "integer", "description": "Heading level 1-4"},
-                        "bold": {"type": "boolean"},
-                        "items": {"type": "array", "items": {"type": "string"}, "description": "Bullet items"},
-                        "headers": {"type": "array", "items": {"type": "string"}},
-                        "rows": {"type": "array", "items": {"type": "array"}},
-                    }},
+                    "description": "Content: string OR list of blocks [{type,text}]. String is simplest.",
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "object", "properties": {
+                            "type": {"type": "string", "enum": ["heading", "paragraph", "bullet", "table", "pagebreak"]},
+                            "text": {"type": "string"},
+                            "level": {"type": "integer"},
+                            "bold": {"type": "boolean"},
+                            "items": {"type": "array", "items": {"type": "string"}},
+                            "headers": {"type": "array", "items": {"type": "string"}},
+                            "rows": {"type": "array", "items": {"type": "array"}},
+                        }}},
+                    ],
                 },
-            }, "required": ["path", "content"]},
+                "text": {"type": "string", "description": "Plain text shortcut (alternative to content)"},
+            }, "required": ["path"]},
         }, _word_create),
         ToolEntry("pptx_create", {
             "name": "pptx_create",
