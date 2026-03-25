@@ -240,6 +240,13 @@ def _run_shell(ctx: ToolContext, cmd, cwd: str = "") -> str:
             '(2) For pipes/chaining: ["sh", "-c", "cmd1 && cmd2"]'
         )
 
+    # Fix common model mistake: sh -c "'command'" → sh -c "command"
+    if len(cmd) >= 3 and cmd[0] in ("sh","bash","zsh") and cmd[1] == "-c":
+        shell_arg = cmd[2]
+        if shell_arg.startswith("'") and shell_arg.endswith("'"):
+            cmd = list(cmd)
+            cmd[2] = shell_arg[1:-1]
+
     work_dir = ctx.repo_dir
     if cwd and cwd.strip() not in ("", ".", "./"):
         candidate = (ctx.repo_dir / cwd).resolve()
