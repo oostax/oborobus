@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import logging
 
 from ouroboros.llm import LLMClient, normalize_reasoning_effort, add_usage
-from ouroboros.tool_policy import initial_tool_schemas, list_non_core_tools
+from ouroboros.tool_policy import initial_tool_schemas, list_non_core_tools, CHAT_TOOL_NAMES
 from ouroboros.tools.registry import ToolRegistry
 from ouroboros.context_compaction import compact_tool_history_llm
 from ouroboros.utils import estimate_tokens
@@ -281,6 +281,12 @@ def run_llm_loop(
     _td.set_registry(tools)
 
     tool_schemas = initial_tool_schemas(tools)
+    # For direct chat tasks — restrict to safe chat tools only (no restart, no git ops)
+    if task_type in ("task", "") and getattr(tools._ctx, "is_direct_chat", False):
+        tool_schemas = [
+            s for s in tool_schemas
+            if (s.get("function") or {}).get("name", "") in CHAT_TOOL_NAMES
+        ]
     tool_schemas, _enabled_extra_tools = _setup_dynamic_tools(tools, tool_schemas, messages)
 
     tools._ctx.event_queue = event_queue

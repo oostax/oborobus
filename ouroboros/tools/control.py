@@ -28,6 +28,9 @@ MAX_SUBTASK_DEPTH = 3
 
 
 def _request_restart(ctx: ToolContext, reason: str) -> str:
+    # Block restart from direct chat tasks — only allow from evolution/review
+    if str(ctx.current_task_type or "") in ("task", ""):
+        return "⚠️ RESTART_BLOCKED: restart is not allowed from user chat tasks. Only evolution/review tasks can restart."
     if str(ctx.current_task_type or "") == "evolution" and not ctx.last_push_succeeded:
         return "⚠️ RESTART_BLOCKED: in evolution mode, commit+push first."
     # Persist expected SHA for post-restart verification
