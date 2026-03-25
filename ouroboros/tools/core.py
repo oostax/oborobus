@@ -16,6 +16,23 @@ from ouroboros.utils import read_text, safe_relpath, utc_now_iso
 log = logging.getLogger(__name__)
 
 
+def _auto_open_file(path: str) -> None:
+    """Open a file in the default macOS app after creation."""
+    import subprocess, sys, pathlib
+    p = pathlib.Path(path)
+    if not p.exists():
+        return
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", str(p)])
+        elif sys.platform == "win32":
+            import os; os.startfile(str(p))
+        else:
+            subprocess.Popen(["xdg-open", str(p)])
+    except Exception:
+        pass
+
+
 def _list_dir(root: pathlib.Path, rel: str, max_entries: int = 500) -> List[str]:
     target = (root / safe_relpath(rel)).resolve()
     if not target.exists():
@@ -81,6 +98,7 @@ def _data_write(ctx: ToolContext, path: str, content: str, mode: str = "overwrit
         else:
             with p_raw.open("a", encoding="utf-8") as f:
                 f.write(content)
+        _auto_open_file(path)
         return f"OK: wrote {mode} {path} ({len(content)} chars)"
     p = ctx.drive_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -89,6 +107,7 @@ def _data_write(ctx: ToolContext, path: str, content: str, mode: str = "overwrit
     else:
         with p.open("a", encoding="utf-8") as f:
             f.write(content)
+    _auto_open_file(str(p))
     return f"OK: wrote {mode} {path} ({len(content)} chars)"
 
 

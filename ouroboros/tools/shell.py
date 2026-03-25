@@ -92,6 +92,59 @@ _ENV_REF_PATTERN = re.compile(r'\$(?:\{[A-Z][A-Z0-9_]*\}|[A-Z][A-Z0-9_]*)')
 # ---------------------------------------------------------------------------
 # run_shell
 # ---------------------------------------------------------------------------
+def _auto_open_from_cmd(cmd: list) -> None:
+    """Auto-open files created by shell commands on macOS."""
+    import sys
+    if sys.platform != "darwin":
+        return
+    if not cmd:
+        return
+    
+    exe = pathlib.Path(cmd[0]).name.lower()
+    
+    # open -a App or open file — already opens, skip
+    if exe == "open":
+        return
+    
+    # screencapture /path/to/file.png
+    if exe == "screencapture":
+        for arg in cmd:
+            if arg.startswith("/") and "." in pathlib.Path(arg).name:
+                _reveal_file(arg)
+                return
+    
+    # touch /path/file, cp src dst, mv src dst
+    if exe in ("touch", "cp", "mv"):
+        target = cmd[-1]
+        if target.startswith("/") or target.startswith("~"):
+            _reveal_file(target)
+        return
+    
+    # sh -c "echo ... > /path/file"
+    if exe in ("sh", "bash", "zsh") and len(cmd) >= 3 and cmd[1] == "-c":
+        shell_cmd = cmd[2]
+        import re
+        m = re.search(r">\s*(\S+)", shell_cmd)
+        if m:
+            _reveal_file(m.group(1))
+
+
+def _reveal_file(path: str) -> None:
+    """Open file or reveal in Finder on macOS."""
+    import subprocess, pathlib, time
+    p = pathlib.Path(path).expanduser()
+    # Wait briefly for file to be written
+    for _ in range(5):
+        if p.exists():
+            break
+        time.sleep(0.2)
+    if p.exists():
+        try:
+            subprocess.Popen(["open", str(p)])
+        except Exception:
+            pass
+
+
 def _run_shell(ctx: ToolContext, cmd, cwd: str = "") -> str:
     if isinstance(cmd, str):
         raw_cmd = cmd
@@ -203,6 +256,9 @@ def _run_shell(ctx: ToolContext, cmd, cwd: str = "") -> str:
         if len(out) > 50000:
             out = out[:25000] + "\n...(truncated)...\n" + out[-25000:]
         prefix = f"exit_code={res.returncode}\n"
+        # Auto-open created files on macOS
+        if res.returncode == 0:
+            _auto_open_from_cmd(cmd)
         return prefix + out
     except subprocess.TimeoutExpired:
         return "⚠️ TIMEOUT: command exceeded 120s."
