@@ -500,11 +500,21 @@ def _control_music(ctx: ToolContext, action: str) -> str:
             }, ensure_ascii=False, indent=2)
         
         elif action in ["pause", "play"]:
-            # Click on the player button at the bottom (play/pause toggle)
+            # Click on the pause/play button (has text "Пауза" or play icon)
             try:
-                player_button = page.query_selector("button.styles_button__Mys2r.styles_btn__uPjUi")
-                if player_button and player_button.is_visible():
-                    player_button.click()
+                # Try to find button with "Пауза" text
+                pause_button = page.query_selector("button:has-text('Пауза')")
+                
+                if not pause_button:
+                    # Try to find button with play icon (when paused)
+                    pause_button = page.query_selector("button.MainButton_button__gd8xr")
+                
+                if not pause_button:
+                    # Alternative: find button with play/pause SVG
+                    pause_button = page.query_selector("button:has(svg path[d*='8.25'])")
+                
+                if pause_button and pause_button.is_visible():
+                    pause_button.click()
                     time.sleep(0.5)
                     
                     action_text = "приостановлена" if action == "pause" else "продолжена"
