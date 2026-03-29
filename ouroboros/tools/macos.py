@@ -381,25 +381,35 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
         except Exception as e:
             log.debug(f"Failed to stop current music: {e}")
         
-        # Encode song name for URL - search for tracks specifically
+        # Encode song name for URL
         encoded_song = urllib.parse.quote(song_name)
-        # Use /release/search to get tracks, not just albums
         search_url = f"https://zvuk.com/search?query={encoded_song}"
         
         # Navigate to search page
         page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
         
         # Wait for content to load
-        time.sleep(3)
+        time.sleep(2)
         
-        # Try to find and click the first track's play button
         play_clicked = False
         
         try:
-            # Wait for track list or releases to appear
-            page.wait_for_selector("div[class*='TrackItem'], div[class*='Release'], button[class*='PlayButton']", timeout=5000, state="visible")
+            # STEP 1: Click on "Треки" tab to show tracks list
+            tracks_tab = page.query_selector("span:has-text('Треки')")
+            if tracks_tab:
+                # Click on parent div
+                parent = tracks_tab.evaluate("el => el.closest('div.Tab_root__uYhYD')")
+                if parent:
+                    page.evaluate("el => el.click()", parent)
+                else:
+                    tracks_tab.click()
+                time.sleep(2)
+                log.info("Clicked on 'Треки' tab")
             
-            # Strategy 1: Try to click play button on first track in list
+            # STEP 2: Wait for track list to appear
+            page.wait_for_selector("div[class*='TrackItem'], button[class*='PlayButton']", timeout=5000, state="visible")
+            
+            # STEP 3: Click play button on first track
             play_buttons = page.query_selector_all("button.PlayButton_button__f5eC3, button[class*='PlayButton']")
             if play_buttons:
                 for btn in play_buttons:
@@ -407,31 +417,25 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
                         btn.click()
                         play_clicked = True
                         time.sleep(1)
+                        log.info("Clicked play button on first track")
                         break
             
-            # Strategy 2: If no play button, click on first release to open it
+            # Fallback: click on first track row
             if not play_clicked:
-                first_release = page.query_selector("div[class*='Release'], div[class*='TrackItem'], a[href*='/release/']")
-                if first_release and first_release.is_visible():
-                    first_release.click()
+                first_track = page.query_selector("div[class*='TrackItem']")
+                if first_track and first_track.is_visible():
+                    first_track.click()
                     time.sleep(2)
                     
-                    # Now try to click play button on the release page
+                    # Try to click "Слушать" button on track page
                     listen_button = page.query_selector("button:has-text('Слушать')")
                     if listen_button and listen_button.is_visible():
                         listen_button.click()
                         play_clicked = True
                         time.sleep(1)
-                    else:
-                        # Try play button
-                        play_btn = page.query_selector("button.PlayButton_button__f5eC3, button[class*='PlayButton']")
-                        if play_btn and play_btn.is_visible():
-                            play_btn.click()
-                            play_clicked = True
-                            time.sleep(1)
             
         except Exception as e:
-            log.debug(f"Track play failed: {e}")
+            log.warning(f"Track play failed: {e}")
         
         if play_clicked:
             return json.dumps({
