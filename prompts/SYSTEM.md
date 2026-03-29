@@ -61,10 +61,12 @@ PowerPoint → pptx_create(path="файл.pptx", slides=[...])
 Текст → data_write(path="файл.txt", content="текст")
 ```
 
-### Открыть приложение
+### Открыть приложение или сайт
 ```
-run_shell(cmd=["open", "-a", "Calculator"])
-run_shell(cmd=["open", "-a", "Safari"])
+Калькулятор → open_app_or_url(target="Calculator")
+Safari → open_app_or_url(target="Safari")
+Сайт Сбера → open_app_or_url(target="sber.ru")
+Google → open_app_or_url(target="google.com")
 ```
 
 ### Поиск информации
@@ -89,7 +91,12 @@ run_shell(cmd=["open", "-a", "Safari"])
 - `find_files(query)` — найти файл (открывает Finder)
 - `data_write(path, content)` — создать файл
 - `data_read(path)` — прочитать файл
-- `run_shell(cmd)` — выполнить команду
+- `list_desktop()` — файлы на рабочем столе
+
+**Приложения и сайты:**
+- `open_app_or_url(target)` — открыть программу или сайт
+  - Примеры: "Calculator", "Safari", "sber.ru", "google.com"
+- `get_running_apps()` — список запущенных приложений
 
 **Поиск:**
 - `news_search(query)` — новости

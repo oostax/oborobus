@@ -203,8 +203,11 @@ def _news_search(ctx: ToolContext, query: str, region: str = "ru-ru",
                 })
 
         if not results:
-            # Fallback: web search via browser
-            return _web_search_fallback(ctx, query)
+            return json.dumps({
+                "query": query,
+                "count": 0,
+                "message": "No news found. Try different keywords.",
+            }, ensure_ascii=False, indent=2)
 
         return json.dumps({
             "query": query,
@@ -214,7 +217,10 @@ def _news_search(ctx: ToolContext, query: str, region: str = "ru-ru",
 
     except Exception as e:
         log.warning("DuckDuckGo search failed: %s", e)
-        return _web_search_fallback(ctx, query)
+        return json.dumps({
+            "error": f"Search failed: {str(e)}",
+            "query": query,
+        }, ensure_ascii=False, indent=2)
 
 
 def _web_search_fallback(ctx: ToolContext, query: str) -> str:
@@ -243,6 +249,65 @@ def _web_search_fallback(ctx: ToolContext, query: str) -> str:
 
 # ---------------------------------------------------------------------------
 # Tool registration
+def _open_app_or_url(ctx: ToolContext, target: str) -> str:
+    """Open application or website on macOS."""
+    try:
+        import subprocess
+        
+        # Check if it's a URL
+        if target.startswith("http://") or target.startswith("https://"):
+            url = target
+        elif "." in target and not target.endswith(".app"):
+            # Looks like a domain
+            url = f"https://{target}"
+        else:
+            # It's an application name
+            result = subprocess.run(
+                ["open", "-a", target],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0:
+                return json.dumps({
+                    "success": True,
+                    "action": "opened_app",
+                    "app": target,
+                }, ensure_ascii=False, indent=2)
+            else:
+                return json.dumps({
+                    "error": f"Failed to open app: {result.stderr}",
+                    "app": target,
+                }, ensure_ascii=False, indent=2)
+        
+        # Open URL
+        result = subprocess.run(
+            ["open", url],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0:
+            return json.dumps({
+                "success": True,
+                "action": "opened_url",
+                "url": url,
+            }, ensure_ascii=False, indent=2)
+        else:
+            return json.dumps({
+                "error": f"Failed to open URL: {result.stderr}",
+                "url": url,
+            }, ensure_ascii=False, indent=2)
+            
+    except Exception as e:
+        return json.dumps({
+            "error": f"Failed to open: {str(e)}",
+            "target": target,
+        }, ensure_ascii=False, indent=2)
+
+
 # ---------------------------------------------------------------------------
 
 def get_tools() -> List[ToolEntry]:
@@ -291,4 +356,17 @@ def get_tools() -> List[ToolEntry]:
                 "max_results": {"type": "integer", "default": 5},
             }, "required": ["query"]},
         }, _news_search),
+
+        ToolEntry("open_app_or_url", {
+            "name": "open_app_or_url",
+            "description": (
+                "Open application or website on macOS. "
+                "For apps: use app name (Calculator, Safari, TextEdit). "
+                "For websites: use domain (sber.ru) or full URL (https://sber.ru). "
+                "Examples: Calculator, Safari, sber.ru, https://google.com"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "target": {"type": "string", "description": "App name or website URL/domain"},
+            }, "required": ["target"]},
+        }, _open_app_or_url),
     ]

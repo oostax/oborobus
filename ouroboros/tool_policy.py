@@ -40,7 +40,7 @@ CHAT_TOOL_NAMES = frozenset({
     # Office tools
     "excel_create", "excel_read", "word_create", "pptx_create", "office_open",
     # macOS tools
-    "find_files", "list_desktop", "get_running_apps",
+    "find_files", "list_desktop", "get_running_apps", "open_app_or_url",
     # Outlook tools
     "outlook_read", "outlook_search", "outlook_compose",
     # Memory
