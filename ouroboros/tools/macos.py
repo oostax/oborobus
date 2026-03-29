@@ -401,20 +401,21 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
                 # Try to find and click the "Треки" tab using XPath
                 page.click("//span[contains(text(), 'Треки')]/..", timeout=3000)
                 tracks_tab_clicked = True
-                time.sleep(2)
                 log.info("Clicked on 'Треки' tab")
+                # Wait longer for tracks to load after clicking tab
+                time.sleep(3)
             except Exception as e:
                 log.debug(f"Failed to click Треки tab: {e}")
                 # Fallback: try clicking any element with "Треки" text
                 try:
                     page.click("text=Треки", timeout=3000)
                     tracks_tab_clicked = True
-                    time.sleep(2)
+                    time.sleep(3)
                 except Exception:
                     pass
             
             # STEP 2: Wait for track list to appear
-            page.wait_for_selector("div[class*='TrackItem'], button[class*='PlayButton']", timeout=5000, state="visible")
+            page.wait_for_selector("button[class*='PlayButton']", timeout=5000, state="visible")
             
             # STEP 3: Click play button on first track
             play_buttons = page.query_selector_all("button.PlayButton_button__f5eC3, button[class*='PlayButton']")
