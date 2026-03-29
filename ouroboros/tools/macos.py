@@ -513,42 +513,71 @@ def _control_music(ctx: ToolContext, action: str) -> str:
             # Get existing browser page
             page = _ensure_browser(ctx)
             
-            # Click on the pause/play button (has text "Пауза" or play icon)
             try:
-                # Try to find button with "Пауза" text
-                pause_button = page.query_selector("button:has-text('Пауза')")
-                
-                if not pause_button:
-                    # Try to find button with play icon (when paused)
-                    pause_button = page.query_selector("button.MainButton_button__gd8xr")
-                
-                if not pause_button:
-                    # Alternative: find button with play/pause SVG
-                    pause_button = page.query_selector("button:has(svg path[d*='8.25'])")
-                
-                if pause_button and pause_button.is_visible():
-                    pause_button.click()
-                    time.sleep(0.5)
+                if action == "pause":
+                    # Look for pause button with SVG containing two vertical bars (pause icon)
+                    log.info("Looking for pause button...")
+                    try:
+                        # Find button that contains SVG with pause icon path
+                        # The pause icon has path with d="M8.25 3.09v13.82..." (two vertical rectangles)
+                        pause_selector = 'button:has(svg path[d*="M8.25 3.09"])'
+                        page.wait_for_selector(pause_selector, timeout=3000, state="visible")
+                        pause_button = page.query_selector(pause_selector)
+                        if pause_button:
+                            page.evaluate("(element) => element.click()", pause_button)
+                            time.sleep(0.5)
+                            log.info("Clicked pause button (SVG icon)")
+                            return json.dumps({
+                                "success": True,
+                                "action": "music_pause",
+                                "message": "Музыка приостановлена.",
+                            }, ensure_ascii=False, indent=2)
+                    except Exception as e:
+                        log.debug(f"Pause button with SVG not found: {e}")
                     
-                    action_text = "приостановлена" if action == "pause" else "продолжена"
-                    return json.dumps({
-                        "success": True,
-                        "action": f"music_{action}",
-                        "message": f"Музыка {action_text}.",
-                    }, ensure_ascii=False, indent=2)
-                else:
-                    # Fallback: try spacebar
+                    # Fallback: Space key
+                    log.info("Fallback: pressing Space for pause")
                     page.keyboard.press("Space")
                     time.sleep(0.5)
-                    
-                    action_text = "приостановлена" if action == "pause" else "продолжена"
                     return json.dumps({
                         "success": True,
-                        "action": f"music_{action}",
-                        "message": f"Музыка {action_text}.",
+                        "action": "music_pause",
+                        "message": "Музыка приостановлена (Space).",
                     }, ensure_ascii=False, indent=2)
+                
+                elif action == "play":
+                    # After pause, find and click the play button with SVG play icon (triangle)
+                    log.info("Looking for play button...")
+                    try:
+                        # Find button that contains SVG with play icon path
+                        # The play icon has path with d="M17.194 9.639..." (triangle)
+                        play_selector = 'button:has(svg path[d*="M17.194"])'
+                        page.wait_for_selector(play_selector, timeout=3000, state="visible")
+                        play_button = page.query_selector(play_selector)
+                        if play_button:
+                            page.evaluate("(element) => element.click()", play_button)
+                            time.sleep(0.5)
+                            log.info("Clicked play button (SVG icon)")
+                            return json.dumps({
+                                "success": True,
+                                "action": "music_play",
+                                "message": "Музыка продолжена.",
+                            }, ensure_ascii=False, indent=2)
+                    except Exception as e:
+                        log.debug(f"Play button with SVG not found: {e}")
+                    
+                    # Fallback: Space key
+                    log.info("Fallback: pressing Space for play")
+                    page.keyboard.press("Space")
+                    time.sleep(0.5)
+                    return json.dumps({
+                        "success": True,
+                        "action": "music_play",
+                        "message": "Музыка продолжена (Space).",
+                    }, ensure_ascii=False, indent=2)
+                
             except Exception as e:
-                log.debug(f"Player button click failed: {e}")
+                log.debug(f"Control failed: {e}")
                 return json.dumps({
                     "error": f"Не удалось управлять плеером: {str(e)}",
                 }, ensure_ascii=False, indent=2)

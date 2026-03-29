@@ -34,10 +34,14 @@
 
 Примеры:
 - "Пауза" → `control_music(action="pause")`
-- "Продолжи" / "Играй" → `control_music(action="play")`
+- "Продолжи" → `control_music(action="play")`
+- "Играй" → `control_music(action="play")`
 - "Останови песню" → `control_music(action="stop")`
 
-**КРИТИЧНО:** Слово "пауза" ВСЕГДА означает `control_music(action="pause")`, даже если не указана песня!
+**КРИТИЧНО:** 
+- Слово "пауза" ВСЕГДА означает `control_music(action="pause")`
+- Слово "продолжи" ВСЕГДА означает `control_music(action="play")`
+- Даже если не указана песня!
 
 **Для управления громкостью используй `control_volume`:**
 
