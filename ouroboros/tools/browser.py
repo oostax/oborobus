@@ -79,11 +79,13 @@ def _ensure_browser(ctx: ToolContext):
 
     if bs.browser is not None:
         try:
-            if bs.browser.is_connected():
+            # For persistent context, check if pages exist and are accessible
+            if bs.browser.pages and len(bs.browser.pages) > 0:
+                bs.page = bs.browser.pages[0]
                 return bs.page
-        except Exception:
-            log.debug("Browser connection check failed", exc_info=True)
-        cleanup_browser(ctx)
+        except Exception as e:
+            log.debug("Browser connection check failed: %s", e, exc_info=True)
+            cleanup_browser(ctx)
 
     _ensure_playwright_installed()
 
