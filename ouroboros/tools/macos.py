@@ -251,6 +251,156 @@ def _web_search_fallback(ctx: ToolContext, query: str) -> str:
 
 # ---------------------------------------------------------------------------
 # Tool registration
+def _control_volume(ctx: ToolContext, action: str, amount: int = 10) -> str:
+    """Control macOS system volume.
+    
+    Args:
+        action: "up" (increase), "down" (decrease), "set" (set to specific level), "mute", "unmute"
+        amount: Volume change amount (0-100)
+    """
+    try:
+        import subprocess
+        
+        if action == "up":
+            # Increase volume
+            result = subprocess.run(
+                ["osascript", "-e", f"set volume output volume (output volume of (get volume settings) + {amount})"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # Get current volume
+                vol_result = subprocess.run(
+                    ["osascript", "-e", "output volume of (get volume settings)"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                current_vol = vol_result.stdout.strip()
+                return json.dumps({
+                    "success": True,
+                    "action": "volume_up",
+                    "amount": amount,
+                    "current_volume": current_vol,
+                }, ensure_ascii=False, indent=2)
+        
+        elif action == "down":
+            # Decrease volume
+            result = subprocess.run(
+                ["osascript", "-e", f"set volume output volume (output volume of (get volume settings) - {amount})"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                vol_result = subprocess.run(
+                    ["osascript", "-e", "output volume of (get volume settings)"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                current_vol = vol_result.stdout.strip()
+                return json.dumps({
+                    "success": True,
+                    "action": "volume_down",
+                    "amount": amount,
+                    "current_volume": current_vol,
+                }, ensure_ascii=False, indent=2)
+        
+        elif action == "set":
+            # Set specific volume
+            result = subprocess.run(
+                ["osascript", "-e", f"set volume output volume {amount}"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                return json.dumps({
+                    "success": True,
+                    "action": "volume_set",
+                    "volume": amount,
+                }, ensure_ascii=False, indent=2)
+        
+        elif action == "mute":
+            result = subprocess.run(
+                ["osascript", "-e", "set volume output muted true"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                return json.dumps({
+                    "success": True,
+                    "action": "muted",
+                }, ensure_ascii=False, indent=2)
+        
+        elif action == "unmute":
+            result = subprocess.run(
+                ["osascript", "-e", "set volume output muted false"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                return json.dumps({
+                    "success": True,
+                    "action": "unmuted",
+                }, ensure_ascii=False, indent=2)
+        
+        return json.dumps({
+            "error": f"Unknown action: {action}",
+        }, ensure_ascii=False, indent=2)
+            
+    except Exception as e:
+        return json.dumps({
+            "error": f"Volume control failed: {str(e)}",
+        }, ensure_ascii=False, indent=2)
+
+
+def _play_music(ctx: ToolContext, song_name: str) -> str:
+    """Search and play music on zvuk.com.
+    
+    Opens zvuk.com search with the song name.
+    """
+    try:
+        import subprocess
+        import urllib.parse
+        
+        # Encode song name for URL
+        encoded_song = urllib.parse.quote(song_name)
+        search_url = f"https://zvuk.com/search?query={encoded_song}"
+        
+        # Open search page
+        result = subprocess.run(
+            ["open", search_url],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0:
+            return json.dumps({
+                "success": True,
+                "action": "opened_music_search",
+                "song": song_name,
+                "url": search_url,
+                "message": f"Открыт поиск '{song_name}' на zvuk.com. Выберите песню и нажмите play.",
+            }, ensure_ascii=False, indent=2)
+        else:
+            return json.dumps({
+                "error": f"Failed to open zvuk.com: {result.stderr}",
+            }, ensure_ascii=False, indent=2)
+            
+    except Exception as e:
+        return json.dumps({
+            "error": f"Music search failed: {str(e)}",
+        }, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
+
 def _open_app_or_url(ctx: ToolContext, target: str) -> str:
     """Open application or website on macOS."""
     try:
@@ -371,4 +521,39 @@ def get_tools() -> List[ToolEntry]:
                 "target": {"type": "string", "description": "App name or website URL/domain"},
             }, "required": ["target"]},
         }, _open_app_or_url),
+
+        ToolEntry("control_volume", {
+            "name": "control_volume",
+            "description": (
+                "Control macOS system volume. "
+                "Actions: 'up' (increase), 'down' (decrease), 'set' (set level), 'mute', 'unmute'. "
+                "Amount: volume change in points (default 10, range 0-100). "
+                "Examples: action='up' amount=20 (increase by 20), action='down' amount=10 (decrease by 10)"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["up", "down", "set", "mute", "unmute"],
+                    "description": "Volume action to perform"
+                },
+                "amount": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Volume change amount (0-100)"
+                },
+            }, "required": ["action"]},
+        }, _control_volume),
+
+        ToolEntry("play_music", {
+            "name": "play_music",
+            "description": (
+                "Search and play music on zvuk.com. "
+                "Opens zvuk.com search page with the song name. "
+                "User can then select and play the song. "
+                "Example: song_name='Кино Группа крови'"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "song_name": {"type": "string", "description": "Song name or artist + song"},
+            }, "required": ["song_name"]},
+        }, _play_music),
     ]

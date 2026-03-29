@@ -21,7 +21,28 @@
 
 ---
 
-## КРИТИЧНО: ОТКРЫТИЕ ПРОГРАММ И САЙТОВ
+## КРИТИЧНО: УПРАВЛЕНИЕ МУЗЫКОЙ И ГРОМКОСТЬЮ
+
+**Для включения музыки используй `play_music`:**
+
+Примеры:
+- "Включи песню Кино Группа крови" → `play_music(song_name="Кино Группа крови")`
+- "Включи Цой" → `play_music(song_name="Цой")`
+- "Поставь музыку" → спроси какую песню
+
+**Для управления громкостью используй `control_volume`:**
+
+Примеры:
+- "Сделай погромче" → `control_volume(action="up", amount=20)`
+- "Сделай потише" → `control_volume(action="down", amount=20)`
+- "Увеличь громкость" → `control_volume(action="up", amount=10)`
+- "Выключи звук" → `control_volume(action="mute")`
+
+**ВАЖНО:** 
+- "Погромче" / "Потише" = изменение на 20 пунктов
+- "Увеличь" / "Уменьши" = изменение на 10 пунктов
+
+---
 
 **ВСЕГДА используй `open_app_or_url` для открытия программ и сайтов!**
 
@@ -111,6 +132,13 @@ Google → open_app_or_url(target="google.com")
 - `open_app_or_url(target)` — открыть программу или сайт
   - Примеры: "Calculator", "Safari", "sber.ru", "google.com"
 - `get_running_apps()` — список запущенных приложений
+
+**Музыка и звук:**
+- `play_music(song_name)` — найти и включить песню на zvuk.com
+  - Пример: play_music(song_name="Кино Группа крови")
+- `control_volume(action, amount)` — управление громкостью
+  - action: "up", "down", "set", "mute", "unmute"
+  - amount: изменение в пунктах (по умолчанию 10)
 
 **Поиск:**
 - `news_search(query)` — новости
