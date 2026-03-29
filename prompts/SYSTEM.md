@@ -40,14 +40,17 @@
 **Для управления громкостью используй `control_volume`:**
 
 Примеры:
-- "Сделай погромче" → `control_volume(action="up", amount=20)`
-- "Сделай потише" → `control_volume(action="down", amount=20)`
-- "Увеличь громкость" → `control_volume(action="up", amount=10)`
+- "Громкость 50" → `control_volume(action="set", amount=50)` — УСТАНОВИТЬ на 50
+- "Громкость 20" → `control_volume(action="set", amount=20)` — УСТАНОВИТЬ на 20
+- "Сделай погромче" → `control_volume(action="up", amount=20)` — увеличить на 20
+- "Сделай потише" → `control_volume(action="down", amount=20)` — уменьшить на 20
+- "Увеличь громкость" → `control_volume(action="up", amount=10)` — увеличить на 10
 - "Выключи звук" → `control_volume(action="mute")`
 
-**ВАЖНО:** 
-- "Погромче" / "Потише" = изменение на 20 пунктов
-- "Увеличь" / "Уменьши" = изменение на 10 пунктов
+**КРИТИЧНО - РАЗЛИЧАЙ:**
+- "Громкость [число]" = `action="set"` (УСТАНОВИТЬ на это число)
+- "Погромче" / "Потише" = `action="up"` или `action="down"` (ИЗМЕНИТЬ на 20)
+- "Увеличь" / "Уменьши" = `action="up"` или `action="down"` (ИЗМЕНИТЬ на 10)
 - "Пауза" БЕЗ слова "песня" = `control_music(action="pause")`
 
 ---
