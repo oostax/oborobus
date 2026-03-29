@@ -946,28 +946,33 @@ def _search_emails(ctx: ToolContext, query: str) -> str:
     try:
         from ouroboros.tools.browser import _ensure_browser
         import time
-        import urllib.parse
         
         page = _ensure_browser(ctx)
         
-        # Navigate to Outlook with search
-        encoded_query = urllib.parse.quote(query)
-        search_url = f"https://outlook.live.com/mail/?search={encoded_query}"
-        
-        log.info(f"Searching emails for: {query}")
-        page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
+        # Navigate to Outlook inbox first
+        log.info(f"Opening Outlook to search for: {query}")
+        page.goto("https://outlook.live.com/mail/", wait_until="domcontentloaded", timeout=15000)
         time.sleep(3)
         
-        # Wait for results (long timeout for login)
+        # Find search input field
         try:
-            log.info("Waiting for search results (you have 60 seconds to login)...")
-            page.wait_for_selector("div[role='listbox']", timeout=60000, state="visible")
+            search_input = page.query_selector("input[aria-label*='Search'], input[placeholder*='Search'], input[type='search']")
+            if not search_input:
+                return json.dumps({
+                    "error": "Не удалось найти поле поиска.",
+                }, ensure_ascii=False, indent=2)
+            
+            # Enter search query and press Enter
+            log.info(f"Entering search query: {query}")
+            search_input.fill(query)
+            time.sleep(1)
+            search_input.press("Enter")
+            time.sleep(5)  # Wait for search results
+            
         except Exception as e:
             return json.dumps({
-                "error": "Не удалось выполнить поиск.",
+                "error": f"Не удалось выполнить поиск: {str(e)}",
             }, ensure_ascii=False, indent=2)
-        
-        time.sleep(2)
         
         # Get search results
         results = []
@@ -982,10 +987,17 @@ def _search_emails(ctx: ToolContext, query: str) -> str:
                 text = item.inner_text()
                 lines = [l.strip() for l in text.split('\n') if l.strip()]
                 
-                if len(lines) >= 3:
+                if len(lines) >= 2:
                     email_data["from"] = lines[0]
                     email_data["subject"] = lines[1]
-                    email_data["preview"] = lines[3] if len(lines) > 3 else ""
+                    
+                    # Find date and preview
+                    for idx in range(2, min(len(lines), 5)):
+                        if '/' in lines[idx] or any(c.isdigit() for c in lines[idx]):
+                            email_data["time"] = lines[idx]
+                            if idx + 1 < len(lines):
+                                email_data["preview"] = ' '.join(lines[idx+1:])[:150]
+                            break
                 
                 if email_data and email_data.get("from"):
                     results.append(email_data)
