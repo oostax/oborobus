@@ -136,6 +136,9 @@ Google → open_app_or_url(target="google.com")
 **Музыка и звук:**
 - `play_music(song_name)` — найти и включить песню на zvuk.com
   - Пример: play_music(song_name="Кино Группа крови")
+- `control_music(action)` — управление воспроизведением
+  - action: "pause" (пауза), "play" (продолжить), "stop" (остановить)
+  - Примеры: control_music(action="pause"), control_music(action="play")
 - `control_volume(action, amount)` — управление громкостью
   - action: "up", "down", "set", "mute", "unmute"
   - amount: изменение в пунктах (по умолчанию 10)

@@ -107,6 +107,7 @@ def _ensure_browser(ctx: ToolContext):
             "--disable-blink-features=AutomationControlled",
             "--disable-features=site-per-process",
             "--window-size=1920,1080",
+            "--window-position=0,0",
         ],
         viewport={"width": 1920, "height": 1080},
         user_agent=(
@@ -115,6 +116,12 @@ def _ensure_browser(ctx: ToolContext):
         ),
     )
     bs.page = bs.browser.pages[0] if bs.browser.pages else bs.browser.new_page()
+    
+    # Maximize window
+    try:
+        bs.page.set_viewport_size({"width": 1920, "height": 1080})
+    except Exception:
+        pass
 
     if _HAS_STEALTH:
         stealth = Stealth()

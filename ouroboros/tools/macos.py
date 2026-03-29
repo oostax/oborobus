@@ -451,6 +451,50 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
         }, ensure_ascii=False, indent=2)
 
 
+def _control_music(ctx: ToolContext, action: str) -> str:
+    """Control music playback on zvuk.com (pause/play/stop).
+    
+    Args:
+        action: "pause" (pause playback), "play" (resume playback), "stop" (stop and close)
+    """
+    try:
+        from ouroboros.tools.browser import _ensure_browser
+        import time
+        
+        page = _ensure_browser(ctx)
+        
+        if action == "stop":
+            # Close the browser tab
+            page.close()
+            return json.dumps({
+                "success": True,
+                "action": "music_stopped",
+                "message": "Музыка остановлена.",
+            }, ensure_ascii=False, indent=2)
+        
+        elif action in ["pause", "play"]:
+            # Press spacebar to toggle play/pause
+            page.keyboard.press("Space")
+            time.sleep(0.5)
+            
+            action_text = "приостановлена" if action == "pause" else "продолжена"
+            return json.dumps({
+                "success": True,
+                "action": f"music_{action}",
+                "message": f"Музыка {action_text}.",
+            }, ensure_ascii=False, indent=2)
+        
+        else:
+            return json.dumps({
+                "error": f"Неизвестное действие: {action}. Используй 'pause', 'play' или 'stop'.",
+            }, ensure_ascii=False, indent=2)
+            
+    except Exception as e:
+        return json.dumps({
+            "error": f"Не удалось управлять музыкой: {str(e)}",
+        }, ensure_ascii=False, indent=2)
+
+
 # ---------------------------------------------------------------------------
 
 def _open_app_or_url(ctx: ToolContext, target: str) -> str:
@@ -600,12 +644,27 @@ def get_tools() -> List[ToolEntry]:
             "name": "play_music",
             "description": (
                 "Search and play music on zvuk.com. "
-                "Opens zvuk.com search page with the song name. "
-                "User can then select and play the song. "
+                "Opens zvuk.com search page with the song name and auto-clicks play. "
                 "Example: song_name='Кино Группа крови'"
             ),
             "parameters": {"type": "object", "properties": {
                 "song_name": {"type": "string", "description": "Song name or artist + song"},
             }, "required": ["song_name"]},
         }, _play_music),
+
+        ToolEntry("control_music", {
+            "name": "control_music",
+            "description": (
+                "Control music playback on zvuk.com. "
+                "Actions: 'pause' (pause music), 'play' (resume music), 'stop' (stop and close). "
+                "Examples: action='pause' (pause), action='play' (continue), action='stop' (stop)"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["pause", "play", "stop"],
+                    "description": "Music control action"
+                },
+            }, "required": ["action"]},
+        }, _control_music),
     ]
