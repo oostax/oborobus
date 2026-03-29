@@ -500,16 +500,35 @@ def _control_music(ctx: ToolContext, action: str) -> str:
             }, ensure_ascii=False, indent=2)
         
         elif action in ["pause", "play"]:
-            # Press spacebar to toggle play/pause
-            page.keyboard.press("Space")
-            time.sleep(0.5)
-            
-            action_text = "приостановлена" if action == "pause" else "продолжена"
-            return json.dumps({
-                "success": True,
-                "action": f"music_{action}",
-                "message": f"Музыка {action_text}.",
-            }, ensure_ascii=False, indent=2)
+            # Click on the player button at the bottom (play/pause toggle)
+            try:
+                player_button = page.query_selector("button.styles_button__Mys2r.styles_btn__uPjUi")
+                if player_button and player_button.is_visible():
+                    player_button.click()
+                    time.sleep(0.5)
+                    
+                    action_text = "приостановлена" if action == "pause" else "продолжена"
+                    return json.dumps({
+                        "success": True,
+                        "action": f"music_{action}",
+                        "message": f"Музыка {action_text}.",
+                    }, ensure_ascii=False, indent=2)
+                else:
+                    # Fallback: try spacebar
+                    page.keyboard.press("Space")
+                    time.sleep(0.5)
+                    
+                    action_text = "приостановлена" if action == "pause" else "продолжена"
+                    return json.dumps({
+                        "success": True,
+                        "action": f"music_{action}",
+                        "message": f"Музыка {action_text}.",
+                    }, ensure_ascii=False, indent=2)
+            except Exception as e:
+                log.debug(f"Player button click failed: {e}")
+                return json.dumps({
+                    "error": f"Не удалось управлять плеером: {str(e)}",
+                }, ensure_ascii=False, indent=2)
         
         else:
             return json.dumps({
