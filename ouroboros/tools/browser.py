@@ -106,22 +106,16 @@ def _ensure_browser(ctx: ToolContext):
             "--disable-dev-shm-usage",
             "--disable-blink-features=AutomationControlled",
             "--disable-features=site-per-process",
-            "--window-size=1920,1080",
-            "--window-position=0,0",
+            "--start-maximized",
         ],
-        viewport={"width": 1920, "height": 1080},
+        viewport=None,  # Use full screen viewport
+        no_viewport=True,  # Don't set fixed viewport
         user_agent=(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         ),
     )
     bs.page = bs.browser.pages[0] if bs.browser.pages else bs.browser.new_page()
-    
-    # Maximize window
-    try:
-        bs.page.set_viewport_size({"width": 1920, "height": 1080})
-    except Exception:
-        pass
 
     if _HAS_STEALTH:
         stealth = Stealth()
