@@ -360,42 +360,81 @@ def _control_volume(ctx: ToolContext, action: str, amount: int = 10) -> str:
 
 
 def _play_music(ctx: ToolContext, song_name: str) -> str:
-    """Search and play music on zvuk.com.
+    """Search and play music on zvuk.com using browser automation.
     
-    Opens zvuk.com search with the song name.
+    Opens zvuk.com, searches for the song, and clicks play on the first result.
     """
     try:
-        import subprocess
-        import urllib.parse
+        from ouroboros.tools.browser import get_browser_state
         
-        # Encode song name for URL
+        browser_state = get_browser_state(ctx)
+        page = browser_state.page
+        
+        import urllib.parse
         encoded_song = urllib.parse.quote(song_name)
         search_url = f"https://zvuk.com/search?query={encoded_song}"
         
-        # Open search page
-        result = subprocess.run(
-            ["open", search_url],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        # Navigate to search page
+        page.goto(search_url, wait_until="networkidle", timeout=15000)
         
-        if result.returncode == 0:
+        # Wait for search results
+        page.wait_for_selector("div[class*='track'], a[class*='track']", timeout=10000)
+        
+        # Try to find and click the first play button
+        # zvuk.com uses different selectors, try multiple
+        play_selectors = [
+            "button[aria-label*='play']",
+            "button[class*='play']",
+            "div[class*='play-button']",
+            "[data-testid*='play']",
+            "button svg[class*='play']",
+        ]
+        
+        play_clicked = False
+        for selector in play_selectors:
+            try:
+                play_button = page.query_selector(selector)
+                if play_button and play_button.is_visible():
+                    play_button.click()
+                    play_clicked = True
+                    break
+            except Exception:
+                continue
+        
+        if not play_clicked:
+            # If no play button found, just return the search page
             return json.dumps({
                 "success": True,
                 "action": "opened_music_search",
                 "song": song_name,
                 "url": search_url,
-                "message": f"Открыт поиск '{song_name}' на zvuk.com. Выберите песню и нажмите play.",
+                "message": f"Открыт поиск '{song_name}' на zvuk.com. Кнопка play не найдена автоматически - нажмите вручную.",
             }, ensure_ascii=False, indent=2)
-        else:
-            return json.dumps({
-                "error": f"Failed to open zvuk.com: {result.stderr}",
-            }, ensure_ascii=False, indent=2)
-            
-    except Exception as e:
+        
         return json.dumps({
-            "error": f"Music search failed: {str(e)}",
+            "success": True,
+            "action": "music_playing",
+            "song": song_name,
+            "url": search_url,
+            "message": f"Запущена песня '{song_name}' на zvuk.com",
+        }, ensure_ascii=False, indent=2)
+        
+    except Exception as e:
+        # Fallback: just open the search page
+        import subprocess
+        import urllib.parse
+        
+        encoded_song = urllib.parse.quote(song_name)
+        search_url = f"https://zvuk.com/search?query={encoded_song}"
+        
+        subprocess.run(["open", search_url], timeout=5)
+        
+        return json.dumps({
+            "success": True,
+            "action": "opened_music_search",
+            "song": song_name,
+            "url": search_url,
+            "message": f"Открыт поиск '{song_name}' на zvuk.com. Автозапуск не удался: {str(e)}. Нажмите play вручную.",
         }, ensure_ascii=False, indent=2)
 
 
