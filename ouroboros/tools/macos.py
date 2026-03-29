@@ -908,7 +908,7 @@ def _get_unread_summary(ctx: ToolContext) -> str:
                 if "Unread" in aria_label or "unread" in aria_label.lower():
                     unread_count += 1
                     
-                    # Get basic info
+                    # Get detailed info including preview
                     email_data = {}
                     text = item.inner_text()
                     lines = [l.strip() for l in text.split('\n') if l.strip()]
@@ -916,6 +916,15 @@ def _get_unread_summary(ctx: ToolContext) -> str:
                     if len(lines) >= 2:
                         email_data["from"] = lines[0]
                         email_data["subject"] = lines[1]
+                        
+                        # Find date and preview
+                        for idx in range(2, min(len(lines), 5)):
+                            if '/' in lines[idx] or any(c.isdigit() for c in lines[idx]):
+                                email_data["time"] = lines[idx]
+                                # Get preview text after date
+                                if idx + 1 < len(lines):
+                                    email_data["preview"] = ' '.join(lines[idx+1:])[:200]
+                                break
                     
                     if email_data:
                         unread_emails.append(email_data)
