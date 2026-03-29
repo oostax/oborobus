@@ -379,14 +379,20 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
         page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
         
         # Wait for content to load
-        time.sleep(2)
+        time.sleep(3)
         
         # Try to click the play button
         play_clicked = False
         
         try:
+            # Wait for play button to appear and be visible
+            page.wait_for_selector("button.PlayButton_button__f5eC3, button.Cover_playButton__hjXTm", timeout=5000, state="visible")
+            
             # Look for the play button with the specific class
-            play_button = page.query_selector("button.PlayButton_button__f5eC3, button.Cover_playButton__hjXTm")
+            play_button = page.query_selector("button.PlayButton_button__f5eC3")
+            if not play_button:
+                play_button = page.query_selector("button.Cover_playButton__hjXTm")
+            
             if play_button and play_button.is_visible():
                 play_button.click()
                 play_clicked = True
