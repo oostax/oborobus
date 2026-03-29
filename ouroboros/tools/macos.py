@@ -766,3 +766,335 @@ def get_tools() -> List[ToolEntry]:
             }, "required": ["action"]},
         }, _control_music),
     ]
+
+
+def _read_emails(ctx: ToolContext, count: int = 5) -> str:
+    """Read recent emails from Outlook.
+    
+    Args:
+        count: Number of recent emails to read (default 5, max 20)
+    """
+    try:
+        from ouroboros.tools.browser import _ensure_browser
+        import time
+        
+        count = min(count, 20)  # Limit to 20
+        
+        page = _ensure_browser(ctx)
+        
+        # Navigate to Outlook inbox
+        log.info("Opening Outlook inbox...")
+        page.goto("https://outlook.live.com/mail/", wait_until="domcontentloaded", timeout=15000)
+        time.sleep(3)
+        
+        # Wait for email list to load (long timeout for login)
+        try:
+            log.info("Waiting for email list (you have 60 seconds to login)...")
+            page.wait_for_selector("div[role='listbox']", timeout=60000, state="visible")
+        except Exception as e:
+            log.warning(f"Email list not found: {e}")
+            return json.dumps({
+                "error": "Не удалось загрузить список писем. Возможно, требуется авторизация.",
+            }, ensure_ascii=False, indent=2)
+        
+        time.sleep(2)
+        
+        # Get email items - they are role="option" elements
+        emails = []
+        email_items = page.query_selector_all("div[role='option'][data-convid]")
+        
+        log.info(f"Found {len(email_items)} email items")
+        
+        for i, item in enumerate(email_items[:count]):
+            try:
+                # Extract email info from aria-label
+                aria_label = item.get_attribute("aria-label") or ""
+                
+                email_data = {}
+                
+                # Try to parse from aria-label (contains all info)
+                if aria_label:
+                    # aria-label format: "Unread Microsoft account team Microsoft account password change 2/16/2026 ..."
+                    parts = aria_label.split()
+                    
+                    # Check if unread
+                    email_data["unread"] = "Unread" in aria_label or "unread" in aria_label.lower()
+                    
+                    # Get text content
+                    text = item.inner_text()
+                    lines = [l.strip() for l in text.split('\n') if l.strip()]
+                    
+                    # Lines structure:
+                    # 0: Sender name
+                    # 1: Subject
+                    # 2: Date/time
+                    # 3+: Preview text
+                    if len(lines) >= 2:
+                        email_data["from"] = lines[0]  # Sender
+                        email_data["subject"] = lines[1]  # Subject
+                        
+                        # Find date line (contains "/" or numbers)
+                        for idx in range(2, min(len(lines), 5)):
+                            if '/' in lines[idx] or any(c.isdigit() for c in lines[idx]):
+                                email_data["time"] = lines[idx]
+                                # Preview is everything after time
+                                if idx + 1 < len(lines):
+                                    email_data["preview"] = ' '.join(lines[idx+1:])[:150]
+                                break
+                
+                if email_data and email_data.get("from"):
+                    emails.append(email_data)
+                    log.debug(f"Parsed email {i+1}: {email_data.get('subject', 'N/A')}")
+                    
+            except Exception as e:
+                log.debug(f"Failed to parse email {i}: {e}")
+                continue
+        
+        if not emails:
+            return json.dumps({
+                "error": "Не удалось прочитать письма. Проверь авторизацию.",
+            }, ensure_ascii=False, indent=2)
+        
+        return json.dumps({
+            "success": True,
+            "count": len(emails),
+            "emails": emails,
+        }, ensure_ascii=False, indent=2)
+        
+    except Exception as e:
+        log.error(f"Read emails failed: {e}")
+        return json.dumps({
+            "error": f"Ошибка чтения почты: {str(e)}",
+        }, ensure_ascii=False, indent=2)
+
+
+def _get_unread_summary(ctx: ToolContext) -> str:
+    """Get summary of all unread emails from Outlook."""
+    try:
+        from ouroboros.tools.browser import _ensure_browser
+        import time
+        
+        page = _ensure_browser(ctx)
+        
+        # Navigate to Outlook inbox
+        log.info("Opening Outlook inbox...")
+        page.goto("https://outlook.live.com/mail/", wait_until="domcontentloaded", timeout=15000)
+        time.sleep(3)
+        
+        # Wait for email list (long timeout for login)
+        try:
+            log.info("Waiting for email list (you have 60 seconds to login)...")
+            page.wait_for_selector("div[role='listbox']", timeout=60000, state="visible")
+        except Exception as e:
+            return json.dumps({
+                "error": "Не удалось загрузить почту.",
+            }, ensure_ascii=False, indent=2)
+        
+        time.sleep(2)
+        
+        # Get unread count from UI
+        unread_count = 0
+        unread_emails = []
+        
+        email_items = page.query_selector_all("div[role='option'][data-convid]")
+        
+        log.info(f"Found {len(email_items)} email items")
+        
+        for item in email_items[:20]:  # Check first 20
+            try:
+                # Check if unread from aria-label
+                aria_label = item.get_attribute("aria-label") or ""
+                
+                if "Unread" in aria_label or "unread" in aria_label.lower():
+                    unread_count += 1
+                    
+                    # Get basic info
+                    email_data = {}
+                    text = item.inner_text()
+                    lines = [l.strip() for l in text.split('\n') if l.strip()]
+                    
+                    if len(lines) >= 2:
+                        email_data["from"] = lines[0]
+                        email_data["subject"] = lines[1]
+                    
+                    if email_data:
+                        unread_emails.append(email_data)
+                        
+            except Exception as e:
+                log.debug(f"Failed to check unread: {e}")
+                continue
+        
+        return json.dumps({
+            "success": True,
+            "unread_count": unread_count,
+            "unread_emails": unread_emails,
+        }, ensure_ascii=False, indent=2)
+        
+    except Exception as e:
+        log.error(f"Get unread summary failed: {e}")
+        return json.dumps({
+            "error": f"Ошибка: {str(e)}",
+        }, ensure_ascii=False, indent=2)
+
+
+def _search_emails(ctx: ToolContext, query: str) -> str:
+    """Search emails in Outlook by keyword.
+    
+    Args:
+        query: Search query (keywords to find in emails)
+    """
+    try:
+        from ouroboros.tools.browser import _ensure_browser
+        import time
+        import urllib.parse
+        
+        page = _ensure_browser(ctx)
+        
+        # Navigate to Outlook with search
+        encoded_query = urllib.parse.quote(query)
+        search_url = f"https://outlook.live.com/mail/?search={encoded_query}"
+        
+        log.info(f"Searching emails for: {query}")
+        page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
+        time.sleep(3)
+        
+        # Wait for results (long timeout for login)
+        try:
+            log.info("Waiting for search results (you have 60 seconds to login)...")
+            page.wait_for_selector("div[role='listbox']", timeout=60000, state="visible")
+        except Exception as e:
+            return json.dumps({
+                "error": "Не удалось выполнить поиск.",
+            }, ensure_ascii=False, indent=2)
+        
+        time.sleep(2)
+        
+        # Get search results
+        results = []
+        email_items = page.query_selector_all("div[role='option'][data-convid]")
+        
+        log.info(f"Found {len(email_items)} search results")
+        
+        for i, item in enumerate(email_items[:10]):  # First 10 results
+            try:
+                email_data = {}
+                
+                text = item.inner_text()
+                lines = [l.strip() for l in text.split('\n') if l.strip()]
+                
+                if len(lines) >= 3:
+                    email_data["from"] = lines[0]
+                    email_data["subject"] = lines[1]
+                    email_data["preview"] = lines[3] if len(lines) > 3 else ""
+                
+                if email_data and email_data.get("from"):
+                    results.append(email_data)
+                    
+            except Exception as e:
+                log.debug(f"Failed to parse result {i}: {e}")
+                continue
+        
+        return json.dumps({
+            "success": True,
+            "query": query,
+            "count": len(results),
+            "results": results,
+        }, ensure_ascii=False, indent=2)
+        
+    except Exception as e:
+        log.error(f"Search emails failed: {e}")
+        return json.dumps({
+            "error": f"Ошибка поиска: {str(e)}",
+        }, ensure_ascii=False, indent=2)
+
+
+def get_tools() -> list[ToolEntry]:
+    """Get all macOS-specific tools."""
+    return [
+        ToolEntry("control_volume", {
+            "name": "control_volume",
+            "description": (
+                "Control macOS system volume. "
+                "Actions: 'up' (increase), 'down' (decrease), 'set' (set level), 'mute', 'unmute'. "
+                "Amount: volume change in points (default 10, range 0-100). "
+                "Examples: action='up' amount=20 (increase by 20), action='down' amount=10 (decrease by 10)"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["up", "down", "set", "mute", "unmute"],
+                    "description": "Volume action to perform"
+                },
+                "amount": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Volume change amount (0-100)"
+                },
+            }, "required": ["action"]},
+        }, _control_volume),
+
+        ToolEntry("play_music", {
+            "name": "play_music",
+            "description": (
+                "Search and play music on zvuk.com. "
+                "Opens zvuk.com search page with the song name and auto-clicks play. "
+                "Example: song_name='Кино Группа крови'"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "song_name": {"type": "string", "description": "Song name or artist + song"},
+            }, "required": ["song_name"]},
+        }, _play_music),
+
+        ToolEntry("control_music", {
+            "name": "control_music",
+            "description": (
+                "Control music playback on zvuk.com. "
+                "Actions: 'pause' (pause music), 'play' (resume music), 'stop' (stop and close). "
+                "Examples: action='pause' (pause), action='play' (continue), action='stop' (stop)"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["pause", "play", "stop"],
+                    "description": "Music control action"
+                },
+            }, "required": ["action"]},
+        }, _control_music),
+
+        ToolEntry("read_emails", {
+            "name": "read_emails",
+            "description": (
+                "Read recent emails from Outlook inbox. "
+                "Returns sender, subject, preview, time, and unread status. "
+                "Example: count=10 (read 10 recent emails)"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "count": {
+                    "type": "integer",
+                    "default": 5,
+                    "description": "Number of emails to read (max 20)"
+                },
+            }, "required": []},
+        }, _read_emails),
+
+        ToolEntry("get_unread_summary", {
+            "name": "get_unread_summary",
+            "description": (
+                "Get summary of all unread emails from Outlook. "
+                "Returns count and list of unread emails with sender and subject."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        }, _get_unread_summary),
+
+        ToolEntry("search_emails", {
+            "name": "search_emails",
+            "description": (
+                "Search emails in Outlook by keyword. "
+                "Returns matching emails with sender, subject, and preview. "
+                "Example: query='invoice' (find emails about invoices)"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "query": {"type": "string", "description": "Search query"},
+            }, "required": ["query"]},
+        }, _search_emails),
+    ]
