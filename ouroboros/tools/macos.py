@@ -163,50 +163,44 @@ def _list_desktop(ctx: ToolContext) -> str:
 
 def _news_search(ctx: ToolContext, query: str, region: str = "ru-ru",
                  max_results: int = 5) -> str:
-    """Search news via DuckDuckGo Instant Answer API. Free, no API key required."""
+    """Search news via Google News RSS. Free, no API key required."""
     try:
         import urllib.request
         import urllib.parse
         import ssl
+        import xml.etree.ElementTree as ET
 
-        # DuckDuckGo Instant Answer API
-        params = urllib.parse.urlencode({
-            "q": query,
-            "format": "json",
-            "no_html": "1",
-            "skip_disambig": "1",
-        })
-        url = f"https://api.duckduckgo.com/?{params}"
+        # Google News RSS
+        encoded_query = urllib.parse.quote(query)
+        url = f"https://news.google.com/rss/search?q={encoded_query}&hl=ru&gl=RU&ceid=RU:ru"
 
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         
-        # Disable SSL verification for corporate proxies
+        # Disable SSL verification
         ctx_ssl = ssl.create_default_context()
         ctx_ssl.check_hostname = False
         ctx_ssl.verify_mode = ssl.CERT_NONE
         
         with urllib.request.urlopen(req, timeout=10, context=ctx_ssl) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+            xml_data = resp.read().decode("utf-8")
 
+        # Parse RSS XML
+        root = ET.fromstring(xml_data)
         results = []
-
-        # Abstract (main answer)
-        if data.get("AbstractText"):
-            results.append({
-                "title": data.get("Heading", query),
-                "text": data["AbstractText"][:500],
-                "url": data.get("AbstractURL", ""),
-                "source": data.get("AbstractSource", ""),
-            })
-
-        # Related topics
-        for topic in data.get("RelatedTopics", [])[:max_results]:
-            if isinstance(topic, dict) and topic.get("Text"):
+        
+        # Find all items in RSS
+        for item in root.findall(".//item")[:max_results]:
+            title_elem = item.find("title")
+            link_elem = item.find("link")
+            pub_date_elem = item.find("pubDate")
+            description_elem = item.find("description")
+            
+            if title_elem is not None and link_elem is not None:
                 results.append({
-                    "title": topic.get("Text", "")[:100],
-                    "text": topic.get("Text", "")[:300],
-                    "url": topic.get("FirstURL", ""),
-                    "source": "DuckDuckGo",
+                    "title": title_elem.text or "",
+                    "url": link_elem.text or "",
+                    "published": pub_date_elem.text if pub_date_elem is not None else "",
+                    "description": (description_elem.text or "")[:200] if description_elem is not None else "",
                 })
 
         if not results:
@@ -219,11 +213,12 @@ def _news_search(ctx: ToolContext, query: str, region: str = "ru-ru",
         return json.dumps({
             "query": query,
             "count": len(results),
-            "results": results[:max_results]
+            "results": results,
+            "source": "Google News"
         }, ensure_ascii=False, indent=2)
 
     except Exception as e:
-        log.warning("DuckDuckGo search failed: %s", e)
+        log.warning("Google News search failed: %s", e)
         return json.dumps({
             "error": f"Search failed: {str(e)}",
             "query": query,
