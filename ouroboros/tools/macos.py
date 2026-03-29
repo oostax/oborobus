@@ -167,6 +167,7 @@ def _news_search(ctx: ToolContext, query: str, region: str = "ru-ru",
     try:
         import urllib.request
         import urllib.parse
+        import ssl
 
         # DuckDuckGo Instant Answer API
         params = urllib.parse.urlencode({
@@ -178,7 +179,13 @@ def _news_search(ctx: ToolContext, query: str, region: str = "ru-ru",
         url = f"https://api.duckduckgo.com/?{params}"
 
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        
+        # Disable SSL verification for corporate proxies
+        ctx_ssl = ssl.create_default_context()
+        ctx_ssl.check_hostname = False
+        ctx_ssl.verify_mode = ssl.CERT_NONE
+        
+        with urllib.request.urlopen(req, timeout=10, context=ctx_ssl) as resp:
             data = json.loads(resp.read().decode("utf-8"))
 
         results = []
