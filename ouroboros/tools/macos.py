@@ -371,6 +371,16 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
         
         page = _ensure_browser(ctx)
         
+        # Stop any currently playing music by clicking pause button in player
+        try:
+            # Look for the player pause button (same as play button, toggles)
+            pause_button = page.query_selector("button.styles_button__Mys2r.styles_btn__uPjUi")
+            if pause_button and pause_button.is_visible():
+                pause_button.click()
+                time.sleep(0.5)
+        except Exception as e:
+            log.debug(f"Failed to stop current music: {e}")
+        
         # Encode song name for URL
         encoded_song = urllib.parse.quote(song_name)
         search_url = f"https://zvuk.com/search?query={encoded_song}"
@@ -381,24 +391,41 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
         # Wait for content to load
         time.sleep(3)
         
-        # Try to click the play button
+        # Click on the first track to open its page
         play_clicked = False
         
         try:
-            # Wait for play button to appear and be visible
+            # Wait for track list to appear
             page.wait_for_selector("button.PlayButton_button__f5eC3, button.Cover_playButton__hjXTm", timeout=5000, state="visible")
             
-            # Look for the play button with the specific class
-            play_button = page.query_selector("button.PlayButton_button__f5eC3")
-            if not play_button:
-                play_button = page.query_selector("button.Cover_playButton__hjXTm")
-            
-            if play_button and play_button.is_visible():
-                play_button.click()
-                play_clicked = True
-                time.sleep(1)
+            # Click on the first track row to open track page
+            first_track_row = page.query_selector("div[class*='TrackItem'], div[class*='track']")
+            if first_track_row and first_track_row.is_visible():
+                first_track_row.click()
+                time.sleep(2)
+                
+                # Now we're on the track page, click the "Слушать" button
+                listen_button = page.query_selector("button:has-text('Слушать')")
+                if listen_button and listen_button.is_visible():
+                    listen_button.click()
+                    play_clicked = True
+                    time.sleep(1)
         except Exception as e:
-            log.debug(f"Play button click failed: {e}")
+            log.debug(f"Track page navigation failed: {e}")
+        
+        # Fallback: try clicking play button on search page
+        if not play_clicked:
+            try:
+                play_button = page.query_selector("button.PlayButton_button__f5eC3")
+                if not play_button:
+                    play_button = page.query_selector("button.Cover_playButton__hjXTm")
+                
+                if play_button and play_button.is_visible():
+                    play_button.click()
+                    play_clicked = True
+                    time.sleep(1)
+            except Exception as e:
+                log.debug(f"Play button click failed: {e}")
         
         # Alternative: try clicking any button with play icon SVG
         if not play_clicked:
