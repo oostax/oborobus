@@ -360,73 +360,53 @@ def _control_volume(ctx: ToolContext, action: str, amount: int = 10) -> str:
 
 
 def _play_music(ctx: ToolContext, song_name: str) -> str:
-    """Search and play music on zvuk.com using browser automation.
+    """Search and play music on zvuk.com.
     
-    Opens zvuk.com, searches for the song, and clicks play on the first result.
+    Opens zvuk.com search page and automatically clicks the play button.
     """
     try:
-        from ouroboros.tools.browser import get_browser_state
-        
-        browser_state = get_browser_state(ctx)
-        page = browser_state.page
-        
+        from ouroboros.tools.browser import _ensure_browser
         import urllib.parse
+        import time
+        
+        page = _ensure_browser(ctx)
+        
+        # Encode song name for URL
         encoded_song = urllib.parse.quote(song_name)
         search_url = f"https://zvuk.com/search?query={encoded_song}"
         
         # Navigate to search page
         page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
         
-        # Wait a bit for content to load
-        import time
+        # Wait for content to load
         time.sleep(2)
         
-        # Try to find and click the first track's play button
-        # Based on zvuk.com structure, look for track cards and play buttons
+        # Try to click the play button
         play_clicked = False
         
-        # Strategy 1: Find first track card and click on it
         try:
-            # Look for track items in popular tracks section
-            track_selector = "div[class*='track'] a, a[href*='/release/'], div[class*='TrackItem']"
-            first_track = page.query_selector(track_selector)
-            if first_track:
-                first_track.click()
-                time.sleep(1)
+            # Look for the play button with the specific class
+            play_button = page.query_selector("button.PlayButton_button__f5eC3, button.Cover_playButton__hjXTm")
+            if play_button and play_button.is_visible():
+                play_button.click()
                 play_clicked = True
+                time.sleep(1)
         except Exception as e:
-            log.debug(f"Strategy 1 failed: {e}")
+            log.debug(f"Play button click failed: {e}")
         
-        # Strategy 2: Look for play button icon
+        # Alternative: try clicking any button with play icon SVG
         if not play_clicked:
             try:
-                play_selectors = [
-                    "button[aria-label='play']",
-                    "button[aria-label='Воспроизвести']",
-                    "[data-testid='play-button']",
-                    "svg[class*='play']",
-                    "button svg",
-                ]
-                
-                for selector in play_selectors:
-                    buttons = page.query_selector_all(selector)
-                    for button in buttons:
-                        if button.is_visible():
-                            button.click()
-                            play_clicked = True
-                            break
-                    if play_clicked:
+                buttons = page.query_selector_all("button")
+                for button in buttons:
+                    # Check if button contains play icon SVG
+                    svg = button.query_selector("svg")
+                    if svg and button.is_visible():
+                        button.click()
+                        play_clicked = True
                         break
             except Exception as e:
-                log.debug(f"Strategy 2 failed: {e}")
-        
-        # Strategy 3: Press spacebar to play (universal shortcut)
-        if not play_clicked:
-            try:
-                page.keyboard.press("Space")
-                play_clicked = True
-            except Exception as e:
-                log.debug(f"Strategy 3 failed: {e}")
+                log.debug(f"SVG button click failed: {e}")
         
         if play_clicked:
             return json.dumps({
@@ -442,11 +422,12 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
                 "action": "opened_music_search",
                 "song": song_name,
                 "url": search_url,
-                "message": f"Открыт поиск '{song_name}' на zvuk.com. Кнопка play не найдена - нажмите пробел или кликните на трек.",
+                "message": f"Открыт поиск '{song_name}' на zvuk.com. Кнопка play не найдена - кликните на трек вручную.",
             }, ensure_ascii=False, indent=2)
         
     except Exception as e:
-        # Fallback: just open the search page
+        log.warning(f"Music playback failed: {e}")
+        # Fallback: just open in Safari
         import subprocess
         import urllib.parse
         
@@ -460,7 +441,7 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
             "action": "opened_music_search",
             "song": song_name,
             "url": search_url,
-            "message": f"Открыт поиск '{song_name}' на zvuk.com. Автозапуск не удался: {str(e)}. Нажмите пробел для воспроизведения.",
+            "message": f"Открыт поиск '{song_name}' на zvuk.com в Safari. Кликните на трек для воспроизведения.",
         }, ensure_ascii=False, indent=2)
 
 

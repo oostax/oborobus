@@ -105,6 +105,7 @@ class BrowserState:
     browser: Any = None
     page: Any = None
     last_screenshot_b64: Optional[str] = None
+    _thread_id: Optional[int] = None
 
 
 @dataclass
