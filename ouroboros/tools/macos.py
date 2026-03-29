@@ -485,21 +485,30 @@ def _control_music(ctx: ToolContext, action: str) -> str:
         action: "pause" (pause playback), "play" (resume playback), "stop" (stop and close)
     """
     try:
-        from ouroboros.tools.browser import _ensure_browser
+        from ouroboros.tools.browser import _ensure_browser, cleanup_browser
         import time
         
-        page = _ensure_browser(ctx)
-        
         if action == "stop":
-            # Close the browser tab
-            page.close()
-            return json.dumps({
-                "success": True,
-                "action": "music_stopped",
-                "message": "Музыка остановлена.",
-            }, ensure_ascii=False, indent=2)
+            # Close the browser
+            try:
+                cleanup_browser(ctx)
+                return json.dumps({
+                    "success": True,
+                    "action": "music_stopped",
+                    "message": "Музыка остановлена.",
+                }, ensure_ascii=False, indent=2)
+            except Exception as e:
+                log.debug(f"Browser cleanup failed: {e}")
+                return json.dumps({
+                    "success": True,
+                    "action": "music_stopped",
+                    "message": "Музыка остановлена (браузер уже закрыт).",
+                }, ensure_ascii=False, indent=2)
         
         elif action in ["pause", "play"]:
+            # Get existing browser page
+            page = _ensure_browser(ctx)
+            
             # Click on the pause/play button (has text "Пауза" or play icon)
             try:
                 # Try to find button with "Пауза" text
