@@ -34,12 +34,15 @@ CORE_TOOL_NAMES = frozenset({
 CHAT_TOOL_NAMES = frozenset({
     "data_read", "data_list", "data_write",
     "run_shell",
-    "chat_history", "web_search", "web_search_browser",
+    "chat_history", "web_search", "news_search",
     "send_user_message", "send_photo",
     "knowledge_read", "knowledge_write", "knowledge_list",
-    "browse_page", "analyze_screenshot",  # browser_action removed — model misuses it for app opening
     # Office tools
     "excel_create", "excel_read", "word_create", "pptx_create", "office_open",
+    # macOS tools
+    "find_files", "list_desktop", "get_running_apps",
+    # Outlook tools
+    "outlook_read", "outlook_search", "outlook_compose",
     # Memory
     "update_scratchpad",
 })

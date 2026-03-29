@@ -748,15 +748,15 @@ def build_llm_messages(
                       "GigaChat" in os.environ.get("OUROBOROS_MODEL_LIGHT", "")
 
     if _is_small_model:
-        # Compact bible for small models
-        bible_content = "You are Ouroboros, an AI agent running on macOS. Use tools to complete tasks. Be concise."
+        # Minimal context for small models (10B) — only base prompt
+        bible_content = ""
     else:
         bible_content = bible_md
 
-    static_text = (
-        base_prompt + "\n\n"
-        + "## BIBLE.md\n\n" + bible_content
-    )
+    static_text = base_prompt
+    if bible_content.strip():
+        static_text += "\n\n## BIBLE.md\n\n" + bible_content
+    
     if not _is_small_model:
         if arch_md.strip():
             static_text += "\n\n## ARCHITECTURE.md\n\n" + arch_md
@@ -768,41 +768,53 @@ def build_llm_messages(
             static_text += "\n\n## CHECKLISTS.md\n\n" + checklists_md
 
     semi_stable_parts = []
-    semi_stable_parts.extend(build_memory_sections(memory))
+    # Skip memory sections for small models — they bloat context
+    if not _is_small_model:
+        semi_stable_parts.extend(build_memory_sections(memory))
 
-    kb_index_path = env.drive_path("memory/knowledge/index-full.md")
-    if kb_index_path.exists():
-        kb_index = kb_index_path.read_text(encoding="utf-8")
-        if kb_index.strip():
-            semi_stable_parts.append("## Knowledge base\n\n" + kb_index)
+    # Skip knowledge base and patterns for small models
+    if not _is_small_model:
+        kb_index_path = env.drive_path("memory/knowledge/index-full.md")
+        if kb_index_path.exists():
+            kb_index = kb_index_path.read_text(encoding="utf-8")
+            if kb_index.strip():
+                semi_stable_parts.append("## Knowledge base\n\n" + kb_index)
 
-    patterns_path = env.drive_path("memory/knowledge/patterns.md")
-    try:
-        if patterns_path.exists():
-            patterns_text = patterns_path.read_text(encoding="utf-8")
-            if patterns_text.strip():
-                semi_stable_parts.append(
-                    "## Known error patterns (Pattern Register)\n\n" + patterns_text
-                )
-    except Exception:
-        pass
+        patterns_path = env.drive_path("memory/knowledge/patterns.md")
+        try:
+            if patterns_path.exists():
+                patterns_text = patterns_path.read_text(encoding="utf-8")
+                if patterns_text.strip():
+                    semi_stable_parts.append(
+                        "## Known error patterns (Pattern Register)\n\n" + patterns_text
+                    )
+        except Exception:
+            pass
 
-    registry_digest = _build_registry_digest(env)
-    if registry_digest:
-        semi_stable_parts.append(registry_digest)
+        registry_digest = _build_registry_digest(env)
+        if registry_digest:
+            semi_stable_parts.append(registry_digest)
 
     semi_stable_text = "\n\n".join(semi_stable_parts)
 
-    health_section = build_health_invariants(env)
+    # Skip health invariants for small models — too verbose
+    health_section = "" if _is_small_model else build_health_invariants(env)
     dynamic_parts = []
     if health_section:
         dynamic_parts.append(health_section)
-    dynamic_parts.extend([
-        "## Drive state\n\n" + state_json,
-        build_runtime_section(env, task),
-    ])
+    
+    # Minimal runtime context for small models
+    if _is_small_model:
+        dynamic_parts.append(build_runtime_section(env, task))
+    else:
+        dynamic_parts.extend([
+            "## Drive state\n\n" + state_json,
+            build_runtime_section(env, task),
+        ])
 
-    dynamic_parts.extend(build_recent_sections(memory, env, task_id=task.get("id", "")))
+    # Skip recent sections for small models — they bloat context
+    if not _is_small_model:
+        dynamic_parts.extend(build_recent_sections(memory, env, task_id=task.get("id", "")))
 
     if str(task.get("type") or "") == "review" and review_context_builder is not None:
         try:

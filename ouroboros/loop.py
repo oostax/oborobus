@@ -287,6 +287,18 @@ def run_llm_loop(
             s for s in tool_schemas
             if (s.get("function") or {}).get("name", "") in CHAT_TOOL_NAMES
         ]
+    
+    # For small models (GigaChat) — remove browser tools to reduce confusion
+    _is_gigachat = "GigaChat" in os.environ.get("OUROBOROS_MODEL", "") or \
+                   "GigaChat" in os.environ.get("OUROBOROS_MODEL_LIGHT", "")
+    if _is_gigachat:
+        browser_tools = {"browse_page", "analyze_screenshot", "browser_action", "web_search_browser"}
+        tool_schemas = [
+            s for s in tool_schemas
+            if (s.get("function") or {}).get("name", "") not in browser_tools
+        ]
+        log.info(f"GigaChat detected — removed browser tools, {len(tool_schemas)} tools remaining")
+    
     tool_schemas, _enabled_extra_tools = _setup_dynamic_tools(tools, tool_schemas, messages)
 
     tools._ctx.event_queue = event_queue
@@ -299,6 +311,13 @@ def run_llm_loop(
     except (ValueError, TypeError):
         MAX_ROUNDS = 200
         log.warning("Invalid MAX_ROUNDS env var, defaulting to 200")
+    
+    # For small models (GigaChat) in chat mode — limit to 5 rounds to prevent confusion
+    _is_gigachat = "GigaChat" in os.environ.get("OUROBOROS_MODEL", "") or \
+                   "GigaChat" in os.environ.get("OUROBOROS_MODEL_LIGHT", "")
+    if _is_gigachat and task_type in ("task", ""):
+        MAX_ROUNDS = min(MAX_ROUNDS, 5)
+        log.info(f"GigaChat detected in chat mode — limiting to {MAX_ROUNDS} rounds")
     round_idx = 0
     try:
         while True:
