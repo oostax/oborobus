@@ -208,7 +208,7 @@ class ToolRegistry:
 
     _FROZEN_TOOL_MODULES = [
         "browser", "compact_context", "control", "core", "evolution_stats",
-        "git", "github", "health", "knowledge", "memory_tools", "office", "review", "search",
+        "git", "github", "health", "knowledge", "macos", "memory_tools", "office", "review", "search",
         "shell", "tool_discovery", "vision",
     ]
 
