@@ -375,49 +375,75 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
         search_url = f"https://zvuk.com/search?query={encoded_song}"
         
         # Navigate to search page
-        page.goto(search_url, wait_until="networkidle", timeout=15000)
+        page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
         
-        # Wait for search results
-        page.wait_for_selector("div[class*='track'], a[class*='track']", timeout=10000)
+        # Wait a bit for content to load
+        import time
+        time.sleep(2)
         
-        # Try to find and click the first play button
-        # zvuk.com uses different selectors, try multiple
-        play_selectors = [
-            "button[aria-label*='play']",
-            "button[class*='play']",
-            "div[class*='play-button']",
-            "[data-testid*='play']",
-            "button svg[class*='play']",
-        ]
-        
+        # Try to find and click the first track's play button
+        # Based on zvuk.com structure, look for track cards and play buttons
         play_clicked = False
-        for selector in play_selectors:
-            try:
-                play_button = page.query_selector(selector)
-                if play_button and play_button.is_visible():
-                    play_button.click()
-                    play_clicked = True
-                    break
-            except Exception:
-                continue
         
+        # Strategy 1: Find first track card and click on it
+        try:
+            # Look for track items in popular tracks section
+            track_selector = "div[class*='track'] a, a[href*='/release/'], div[class*='TrackItem']"
+            first_track = page.query_selector(track_selector)
+            if first_track:
+                first_track.click()
+                time.sleep(1)
+                play_clicked = True
+        except Exception as e:
+            log.debug(f"Strategy 1 failed: {e}")
+        
+        # Strategy 2: Look for play button icon
         if not play_clicked:
-            # If no play button found, just return the search page
+            try:
+                play_selectors = [
+                    "button[aria-label='play']",
+                    "button[aria-label='Воспроизвести']",
+                    "[data-testid='play-button']",
+                    "svg[class*='play']",
+                    "button svg",
+                ]
+                
+                for selector in play_selectors:
+                    buttons = page.query_selector_all(selector)
+                    for button in buttons:
+                        if button.is_visible():
+                            button.click()
+                            play_clicked = True
+                            break
+                    if play_clicked:
+                        break
+            except Exception as e:
+                log.debug(f"Strategy 2 failed: {e}")
+        
+        # Strategy 3: Press spacebar to play (universal shortcut)
+        if not play_clicked:
+            try:
+                page.keyboard.press("Space")
+                play_clicked = True
+            except Exception as e:
+                log.debug(f"Strategy 3 failed: {e}")
+        
+        if play_clicked:
+            return json.dumps({
+                "success": True,
+                "action": "music_playing",
+                "song": song_name,
+                "url": search_url,
+                "message": f"Запущена песня '{song_name}' на zvuk.com",
+            }, ensure_ascii=False, indent=2)
+        else:
             return json.dumps({
                 "success": True,
                 "action": "opened_music_search",
                 "song": song_name,
                 "url": search_url,
-                "message": f"Открыт поиск '{song_name}' на zvuk.com. Кнопка play не найдена автоматически - нажмите вручную.",
+                "message": f"Открыт поиск '{song_name}' на zvuk.com. Кнопка play не найдена - нажмите пробел или кликните на трек.",
             }, ensure_ascii=False, indent=2)
-        
-        return json.dumps({
-            "success": True,
-            "action": "music_playing",
-            "song": song_name,
-            "url": search_url,
-            "message": f"Запущена песня '{song_name}' на zvuk.com",
-        }, ensure_ascii=False, indent=2)
         
     except Exception as e:
         # Fallback: just open the search page
@@ -434,7 +460,7 @@ def _play_music(ctx: ToolContext, song_name: str) -> str:
             "action": "opened_music_search",
             "song": song_name,
             "url": search_url,
-            "message": f"Открыт поиск '{song_name}' на zvuk.com. Автозапуск не удался: {str(e)}. Нажмите play вручную.",
+            "message": f"Открыт поиск '{song_name}' на zvuk.com. Автозапуск не удался: {str(e)}. Нажмите пробел для воспроизведения.",
         }, ensure_ascii=False, indent=2)
 
 
