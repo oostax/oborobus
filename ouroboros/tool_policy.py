@@ -28,6 +28,15 @@ CORE_TOOL_NAMES = frozenset({
     "request_restart", "promote_to_stable",
     "knowledge_read", "knowledge_write", "knowledge_list",
     "browse_page", "analyze_screenshot",  # browser_action removed — model misuses it for app opening
+    # macOS tools
+    "find_files", "list_desktop", "get_running_apps", "open_app_or_url",
+    "control_volume", "play_music", "control_music",
+    # Office tools
+    "excel_create", "excel_read", "word_create", "pptx_create", "office_open",
+    # Outlook tools
+    "read_emails", "get_unread_summary", "search_emails", "outlook_compose",
+    # Search
+    "news_search",
 })
 
 # Tools available for direct user chat tasks (subset of CORE — no system-level ops)
