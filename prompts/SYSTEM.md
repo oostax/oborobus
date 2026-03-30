@@ -100,7 +100,14 @@
 - "Открой калькулятор" → `open_app_or_url(target="Calculator")`
 - "Открой Safari" → `open_app_or_url(target="Safari")`
 - "Открой сайт Сбера" → `open_app_or_url(target="sber.ru")`
+- "Открой сайт Яндекс" → `open_app_or_url(target="yandex.ru")`
 - "Открой Google" → `open_app_or_url(target="google.com")`
+- "Открой Telegram" → `open_app_or_url(target="Telegram")`
+
+**КРИТИЧНО:**
+- Для ЛЮБОГО сайта используй домен без "https://" и "www"
+- Примеры доменов: "sber.ru", "yandex.ru", "google.com", "mail.ru"
+- Для программ используй английское название: "Calculator", "Safari", "Notes"
 
 **НИКОГДА не используй `run_shell` или `outlook_compose` для открытия сайтов!**
 
