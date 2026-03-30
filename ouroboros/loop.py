@@ -298,6 +298,9 @@ def run_llm_loop(
             if (s.get("function") or {}).get("name", "") not in browser_tools
         ]
         log.info(f"GigaChat detected — removed browser tools, {len(tool_schemas)} tools remaining")
+        # Log remaining tools for debugging
+        remaining_tools = [s.get("function", {}).get("name", "") for s in tool_schemas]
+        log.info(f"Remaining tools: {', '.join(remaining_tools)}")
     
     tool_schemas, _enabled_extra_tools = _setup_dynamic_tools(tools, tool_schemas, messages)
 
