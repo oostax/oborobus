@@ -765,6 +765,43 @@ def get_tools() -> List[ToolEntry]:
                 },
             }, "required": ["action"]},
         }, _control_music),
+
+        ToolEntry("read_emails", {
+            "name": "read_emails",
+            "description": (
+                "Read recent emails from Outlook inbox. "
+                "Returns sender, subject, preview, time, and unread status. "
+                "Example: count=10 (read 10 recent emails)"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "count": {
+                    "type": "integer",
+                    "default": 5,
+                    "description": "Number of emails to read (max 20)"
+                },
+            }, "required": []},
+        }, _read_emails),
+
+        ToolEntry("get_unread_summary", {
+            "name": "get_unread_summary",
+            "description": (
+                "Get summary of all unread emails from Outlook. "
+                "Returns count and list of unread emails with sender and subject."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        }, _get_unread_summary),
+
+        ToolEntry("search_emails", {
+            "name": "search_emails",
+            "description": (
+                "Search emails in Outlook by keyword. "
+                "Returns matching emails with sender, subject, and preview. "
+                "Example: query='invoice' (find emails about invoices)"
+            ),
+            "parameters": {"type": "object", "properties": {
+                "query": {"type": "string", "description": "Search query"},
+            }, "required": ["query"]},
+        }, _search_emails),
     ]
 
 
@@ -1027,95 +1064,3 @@ def _search_emails(ctx: ToolContext, query: str) -> str:
         return json.dumps({
             "error": f"Ошибка поиска: {str(e)}",
         }, ensure_ascii=False, indent=2)
-
-
-def get_tools() -> list[ToolEntry]:
-    """Get all macOS-specific tools."""
-    return [
-        ToolEntry("control_volume", {
-            "name": "control_volume",
-            "description": (
-                "Control macOS system volume. "
-                "Actions: 'up' (increase), 'down' (decrease), 'set' (set level), 'mute', 'unmute'. "
-                "Amount: volume change in points (default 10, range 0-100). "
-                "Examples: action='up' amount=20 (increase by 20), action='down' amount=10 (decrease by 10)"
-            ),
-            "parameters": {"type": "object", "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["up", "down", "set", "mute", "unmute"],
-                    "description": "Volume action to perform"
-                },
-                "amount": {
-                    "type": "integer",
-                    "default": 10,
-                    "description": "Volume change amount (0-100)"
-                },
-            }, "required": ["action"]},
-        }, _control_volume),
-
-        ToolEntry("play_music", {
-            "name": "play_music",
-            "description": (
-                "Search and play music on zvuk.com. "
-                "Opens zvuk.com search page with the song name and auto-clicks play. "
-                "Example: song_name='Кино Группа крови'"
-            ),
-            "parameters": {"type": "object", "properties": {
-                "song_name": {"type": "string", "description": "Song name or artist + song"},
-            }, "required": ["song_name"]},
-        }, _play_music),
-
-        ToolEntry("control_music", {
-            "name": "control_music",
-            "description": (
-                "Control music playback on zvuk.com. "
-                "Actions: 'pause' (pause music), 'play' (resume music), 'stop' (stop and close). "
-                "Examples: action='pause' (pause), action='play' (continue), action='stop' (stop)"
-            ),
-            "parameters": {"type": "object", "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["pause", "play", "stop"],
-                    "description": "Music control action"
-                },
-            }, "required": ["action"]},
-        }, _control_music),
-
-        ToolEntry("read_emails", {
-            "name": "read_emails",
-            "description": (
-                "Read recent emails from Outlook inbox. "
-                "Returns sender, subject, preview, time, and unread status. "
-                "Example: count=10 (read 10 recent emails)"
-            ),
-            "parameters": {"type": "object", "properties": {
-                "count": {
-                    "type": "integer",
-                    "default": 5,
-                    "description": "Number of emails to read (max 20)"
-                },
-            }, "required": []},
-        }, _read_emails),
-
-        ToolEntry("get_unread_summary", {
-            "name": "get_unread_summary",
-            "description": (
-                "Get summary of all unread emails from Outlook. "
-                "Returns count and list of unread emails with sender and subject."
-            ),
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        }, _get_unread_summary),
-
-        ToolEntry("search_emails", {
-            "name": "search_emails",
-            "description": (
-                "Search emails in Outlook by keyword. "
-                "Returns matching emails with sender, subject, and preview. "
-                "Example: query='invoice' (find emails about invoices)"
-            ),
-            "parameters": {"type": "object", "properties": {
-                "query": {"type": "string", "description": "Search query"},
-            }, "required": ["query"]},
-        }, _search_emails),
-    ]
