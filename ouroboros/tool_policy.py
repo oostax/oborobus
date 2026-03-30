@@ -43,7 +43,7 @@ CHAT_TOOL_NAMES = frozenset({
     "find_files", "list_desktop", "get_running_apps", "open_app_or_url",
     "control_volume", "play_music", "control_music",
     # Outlook tools
-    "outlook_read", "outlook_search", "outlook_compose",
+    "read_emails", "get_unread_summary", "search_emails", "outlook_compose",
     # Memory
     "update_scratchpad",
 })
